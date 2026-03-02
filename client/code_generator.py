@@ -250,6 +250,7 @@ print(f"{tool_name}() = {{result}}")"""
         required_tools: Dict[str, List[str]],
         task_description: str,
         imports: List[str],
+        skill_listing: Optional[str] = None,
     ) -> Optional[str]:
         """Generate code using LLM.
         
@@ -257,6 +258,7 @@ print(f"{tool_name}() = {{result}}")"""
             required_tools: Dict mapping server names to lists of tool names
             task_description: Description of the task
             imports: List of import statements
+            skill_listing: Formatted listing of available skills
             
         Returns:
             Generated code string or None if LLM generation fails
@@ -287,12 +289,15 @@ Available tools:
 Import statements (already generated):
 {imports_str}
 
+{"Available generic skills:" + chr(10) + skill_listing + chr(10) if skill_listing else ""}
+
 Generate Python code that:
 1. Uses the import statements above
 2. Calls the appropriate tools to complete the task
 3. Handles errors with try/except blocks
 4. Prints results clearly
 5. Follows Python best practices
+{"6. Prefers using Available generic skills formatting imports as shown if they fully solve the task" if skill_listing else ""}
 
 Only generate the usage code (not the imports). The code should be executable and complete the task.
 
@@ -348,6 +353,7 @@ Generated code:"""
         task_description: str,
         task_specific_calls: Optional[Dict[str, str]] = None,
         header_comment: Optional[str] = None,
+        skill_listing: Optional[str] = None,
     ) -> str:
         """Generate complete Python code for tool usage.
 
@@ -356,6 +362,7 @@ Generated code:"""
             task_description: Description of the task
             task_specific_calls: Optional dict mapping server names to custom code blocks
             header_comment: Optional header comment to include
+            skill_listing: Optional formatting listing of generic skills
 
         Returns:
             Complete Python code string
@@ -364,7 +371,7 @@ Generated code:"""
         
         # Try LLM generation if enabled
         if self._llm_client and self.llm_config and self.llm_config.enabled:
-            llm_usage = self._generate_code_with_llm(required_tools, task_description, imports)
+            llm_usage = self._generate_code_with_llm(required_tools, task_description, imports, skill_listing)
             if llm_usage:
                 usage = [llm_usage]
             else:
@@ -379,6 +386,9 @@ Generated code:"""
 """
 
         header = header_comment or default_header
+        
+        if skill_listing:
+            header += f"\n{skill_listing}\n"
 
         # Wrap imports in try/except to show actual errors
         imports_with_error_handling = []

@@ -32,6 +32,8 @@ class AgentHelper:
         code_generator: Optional[CodeGenerator] = None,
         optimization_config: Optional[OptimizationConfig] = None,
         llm_config: Optional[Any] = None,  # LLMConfig from config.schema
+        skill_manager: Optional[Any] = None,  # SkillManager type
+        auto_save_skills: bool = True,
     ):
         """Initialize agent helper.
 
@@ -42,12 +44,16 @@ class AgentHelper:
             code_generator: Optional CodeGenerator (creates default if None)
             optimization_config: Optional OptimizationConfig (defaults to enabled)
             llm_config: Optional LLMConfig for LLM-based code generation
+            skill_manager: Optional SkillManager for saving/reusing skills
+            auto_save_skills: Whether to automatically save successful code as skills
         """
         self.fs_helper = fs_helper
         self.executor = executor
         self.tool_selector = tool_selector or ToolSelector()
         self.optimization_config = optimization_config or OptimizationConfig()
         self.llm_config = llm_config
+        self.skill_manager = skill_manager
+        self.auto_save_skills = auto_save_skills
         self._tool_cache = None
         
         # Initialize code generator with LLM config if not provided
@@ -283,6 +289,11 @@ class AgentHelper:
             tool_descriptions = self._get_tool_descriptions_cached(discovered_servers)
             self.code_generator.tool_descriptions = tool_descriptions
 
+        # Get available skills from skill manager if present
+        skill_listing = None
+        if self.skill_manager:
+            skill_listing = self.skill_manager.get_skill_listing()
+
         # Generate and execute code
         if verbose:
             print("\n3. Generating code...")
@@ -291,6 +302,7 @@ class AgentHelper:
             task_description=task_description,
             task_specific_calls=task_specific_calls,
             header_comment=header_comment,
+            skill_listing=skill_listing,
         )
 
         if verbose:
@@ -307,6 +319,10 @@ class AgentHelper:
             print("\n4. Executing code...")
 
         result, output, error = self.executor.execute(code, context=context)
+
+        # Save successful skills
+        if result.value == "success" and self.auto_save_skills and self.skill_manager:
+            self._maybe_save_skill(task_description, code, output, verbose)
 
         # Print results
         if verbose:
@@ -351,3 +367,36 @@ class AgentHelper:
             print("   " + "=" * 56)
 
         return result, output, error
+
+    def _maybe_save_skill(self, task_description: str, code: str, output: Any, verbose: bool = False):
+        """Evaluate if the executed code is worth saving as a skill, and if so, save it."""
+        if not self.skill_manager.is_worth_saving(code, output):
+            return
+
+        import re
+        import time
+
+        # Generate a safe skill name from the task description
+        # e.g. "Fetch weather for Tokyo" -> "fetch_weather_for_tokyo"
+        # We take just the first few words to keep it reasonable
+        clean_desc = re.sub(r'[^a-zA-Z0-9\s]', '', task_description).strip()
+        words = clean_desc.lower().split()
+        if not words:
+            return
+            
+        base_name = "_".join(words[:4])
+        # Make sure it's a valid python identifier
+        if not base_name.isidentifier() or base_name.startswith('_'):
+            base_name = "skill_" + str(int(time.time()))
+            
+        skill_name = base_name
+
+        wrapped_code = self.skill_manager.extract_skill_from_code(code, skill_name, task_description)
+        try:
+            self.skill_manager.update_skill(skill_name, wrapped_code, task_description)
+            if verbose:
+                print(f"\n   [Skill Evolution] Automatically saved successful code as skill: '{skill_name}'")
+        except Exception as e:
+            if verbose:
+                logger.warning(f"Failed to auto-save skill {skill_name}: {e}")
+

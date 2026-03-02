@@ -135,6 +135,11 @@ class RecursiveAgent(AgentHelper):
         # For now, let's use the standard flow but with our augmented task.
         # The CodeGenerator might try to find tools.
         
+        # Get available skills from skill manager if present
+        skill_listing = None
+        if self.skill_manager:
+            skill_listing = self.skill_manager.get_skill_listing()
+            
         # These variables are not defined in the original context, assuming they are meant to be empty or defined elsewhere.
         task_specific_calls = "" 
         extended_header = ""
@@ -144,6 +149,7 @@ class RecursiveAgent(AgentHelper):
             task_description=full_task, # Use full_task here, not original task_description
             task_specific_calls=task_specific_calls,
             header_comment=extended_header,
+            skill_listing=skill_listing,
         )
         
         # Post-process code for Monty (inline tools, remove incompatible imports)
@@ -163,35 +169,42 @@ class RecursiveAgent(AgentHelper):
                     new_lines.append(f"{indentation}pass # {line.strip()} # INLINED")
                     continue
                 
-                # Check for tool imports to inline
+                # Check for tool or skill imports to inline
                 # Pattern: from servers.{server}.{tool} import {func}
-                # or from servers.{server} import {func}
-                if line.strip().startswith("from servers."):
+                # or from skills.{skill} import {func}
+                if line.strip().startswith("from servers.") or line.strip().startswith("from skills."):
                     # Comment out the import and add pass to keep block valid, preserving indentation
                     indentation = line[:len(line) - len(line.lstrip())]
                     new_lines.append(f"{indentation}pass # {line.strip()} # INLINED")
                     
                     try:
-                        # Extract server and tool
+                        # Extract module and name
                         parts = line.strip().split()
-                        # parts[1] is 'servers.calculator.multiply' or 'servers.calculator'
+                        # parts[1] is 'servers.calculator.multiply' or 'skills.fetch_weather'
                         module_path = parts[1].split(".")
-                        if len(module_path) >= 2:
+                        
+                        if module_path[0] == "servers" and len(module_path) >= 2:
                             server_name = module_path[1]
                             tool_name = parts[3] # import {tool_name}
                             
                             # Read tool source
                             # Tool file is usually servers/{server}/{tool}.py
                             # But sometimes it's mapped differently. 
-                            # Let's try reading the file.
                             tool_source = self.fs_helper.read_tool_file(server_name, tool_name)
                             if tool_source:
                                 tool_code_prelude += f"\n# Tool: {tool_name}\n{tool_source}\n"
-                            else:
-                                # Try implicit tool name from file (e.g. imports)
-                                pass
+                        
+                        elif module_path[0] == "skills" and len(module_path) >= 2:
+                            skill_name = module_path[1]
+                            
+                            # Read skill source from workspace/skills
+                            skill_file = Path(self.execution_config.workspace_dir) / "skills" / f"{skill_name}.py"
+                            if skill_file.exists():
+                                skill_source = skill_file.read_text(encoding="utf-8")
+                                tool_code_prelude += f"\n# Skill: {skill_name}\n{skill_source}\n"
+                                
                     except Exception as e:
-                        logger.warning(f"Failed to inline tool from line '{line}': {e}")
+                        logger.warning(f"Failed to inline module from line '{line}': {e}")
                 else:
                     new_lines.append(line)
             
@@ -203,5 +216,11 @@ class RecursiveAgent(AgentHelper):
         # which constructs 'execution_context'.
         
         # Execute using parent's execute_task with our context
-        return self.executor.execute(code, context=execution_context)
+        result, output, error = self.executor.execute(code, context=execution_context)
+        
+        # Save successful skills
+        if result and result.value == "success" and getattr(self, "auto_save_skills", False) and self.skill_manager:
+            self._maybe_save_skill(task_description, code, output, verbose)
+            
+        return result, output, error
 

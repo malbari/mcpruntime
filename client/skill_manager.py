@@ -8,12 +8,14 @@ Based on Anthropic's "Skills" pattern from:
 https://www.anthropic.com/engineering/code-execution-with-mcp
 """
 
+import json
 import logging
 import os
 import re
+import ast
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,7 @@ class SkillManager:
     Skills are Python functions/modules that agents have created and can
     reuse across sessions. Each skill includes:
     - Python code (saved as .py file)
-    - Description (saved in SKILLS.md)
+    - Description (saved in SKILLS.md and skill_index.json)
     - Metadata (creation date, usage count, etc.)
     """
     
@@ -37,6 +39,7 @@ class SkillManager:
         self.workspace_dir = Path(workspace_dir)
         self.skills_dir = self.workspace_dir / "skills"
         self.skills_file = self.skills_dir / "SKILLS.md"
+        self.index_file = self.skills_dir / "skill_index.json"
         
         # Create skills directory if it doesn't exist
         self.skills_dir.mkdir(parents=True, exist_ok=True)
@@ -49,6 +52,10 @@ class SkillManager:
         # Create SKILLS.md if it doesn't exist
         if not self.skills_file.exists():
             self._initialize_skills_file()
+
+        # Create skill_index.json if it doesn't exist
+        if not self.index_file.exists():
+            self._write_skill_index([])
     
     def _initialize_skills_file(self) -> None:
         """Create initial SKILLS.md file."""
@@ -67,16 +74,16 @@ Each skill is a Python module that can be imported and used in future tasks.
 To use a skill in your code:
 
 ```python
-from skills import skill_name
-result = skill_name.function_name(args)
+from skills.skill_name import run
+result = run(args)
 ```
 
 ## Skill Format
 
 Each skill should:
 1. Have a clear, descriptive name
-2. Include docstrings explaining what it does
-3. Be self-contained (minimal external dependencies)
+2. Be self-contained (minimal external dependencies)
+3. Expose a `run(*args, **kwargs)` entry-point function
 4. Return results rather than printing them
 """
         self.skills_file.write_text(content)
@@ -114,25 +121,68 @@ Each skill should:
         # Check if skill already exists
         if skill_file.exists():
             raise ValueError(
-                f"Skill '{name}' already exists. Use delete_skill() first to replace it."
+                f"Skill '{name}' already exists. Use update_skill() to replace it."
             )
         
-        # Add header comment to code
-        header = f'''"""
-{description}
+        return self._write_skill_files(name, code, description, tags)
 
+    def update_skill(
+        self,
+        name: str,
+        code: str,
+        description: str,
+        tags: Optional[List[str]] = None,
+    ) -> Dict[str, str]:
+        """Update an existing skill or create it if it doesn't exist.
+        
+        Args:
+            name: Skill name (must be valid Python identifier)
+            code: Python code for the skill
+            description: Human-readable description
+            tags: Optional list of tags for categorization
+            
+        Returns:
+            Dictionary with status and file path
+        """
+        if not self._is_valid_skill_name(name):
+            raise ValueError(
+                f"Invalid skill name '{name}'. Must be a valid Python identifier"
+            )
+
+        skill_file = self.skills_dir / f"{name}.py"
+        
+        if skill_file.exists():
+            # If we are updating, first remove from the markdown registry to avoid duplicates
+            self._remove_skill_from_registry(name)
+
+        return self._write_skill_files(name, code, description, tags)
+
+    def _write_skill_files(self, name: str, code: str, description: str, tags: Optional[List[str]]) -> Dict[str, str]:
+        """Internal helper to write the code file and update the registries."""
+        skill_file = self.skills_dir / f"{name}.py"
+        
+        # Add header comment to code if it doesn't have one
+        if not code.strip().startswith('"""'):
+            header = f'''"""
+skill_name: {name}
+description: {description}
 Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Tags: {', '.join(tags or [])}
 """
 
 '''
-        full_code = header + code
+            full_code = header + code
+        else:
+            full_code = code
         
         # Save skill file
         skill_file.write_text(full_code)
         
         # Update SKILLS.md
         self._add_skill_to_registry(name, description, tags or [])
+        
+        # Update skill_index.json
+        self._update_skill_index()
         
         logger.info(f"Saved skill '{name}' to {skill_file}")
         
@@ -222,6 +272,9 @@ Tags: {', '.join(tags or [])}
         # Remove from SKILLS.md
         self._remove_skill_from_registry(name)
         
+        # Update skill_index.json
+        self._update_skill_index()
+        
         logger.info(f"Deleted skill '{name}'")
         
         return {
@@ -251,6 +304,107 @@ Tags: {', '.join(tags or [])}
                 matching_skills.append(skill)
         
         return matching_skills
+
+    def get_skill_listing(self) -> str:
+        """Get a formatted string of available skills for prompt injection."""
+        skills = self.list_skills()
+        if not skills:
+            return ""
+            
+        lines = ["# Available skills (importable as `from skills.X import run`):"]
+        for skill in skills:
+            signature = "(...)"
+            try:
+                # Try to extract signature from code
+                skill_data = self.get_skill(skill["name"])
+                code = skill_data.get("code", "")
+                
+                run_match = re.search(r'def\s+run\s*\([^)]*\)(?:\s*->\s*[^:]+)?', code)
+                if run_match:
+                    signature = run_match.group(0).replace('def run', '').strip()
+                else:
+                    # Fallback to last defined function
+                    func_match = re.findall(r'def\s+([a-zA-Z0-9_]+)\s*\([^)]*\)', code)
+                    if func_match:
+                        def_match = re.search(rf'def\s+{func_match[-1]}\s*\([^)]*\)(?:\s*->\s*[^:]+)?', code)
+                        if def_match:
+                            signature = def_match.group(0).replace(f'def {func_match[-1]}', '').strip()
+            except Exception:
+                pass
+                
+            desc = skill.get("description", "No description")
+            name = skill["name"]
+            
+            # Keep description on the same line but neatly formatted
+            lines.append(f"# - {name}{signature} — {desc}")
+            
+        return "\n".join(lines)
+        
+    def is_worth_saving(self, code: str, output: Any = None) -> bool:
+        """Heuristic to determine if a generic code snippet is worth saving as a tool.
+        
+        Checks if:
+        1. Code compiles
+        2. Code defines at least one reusable function
+        3. Produced structured/sizable output (if output provided)
+        """
+        try:
+            tree = ast.parse(code)
+            has_func = any(isinstance(node, ast.FunctionDef) for node in ast.walk(tree))
+            if not has_func:
+                return False
+                
+            # If output is available, check if it's somewhat structured/interesting
+            if output is not None:
+                # Dictionaries and lists are definitely useful
+                if isinstance(output, (dict, list)):
+                    return True
+                # Long strings probably indicate successful parsing or extraction
+                if isinstance(output, str) and len(output.strip()) > 10:
+                    return True
+                # Numbers are OK too
+                if isinstance(output, (int, float)):
+                    return True
+                return False
+                
+            return True
+        except Exception:
+            # If it fails to parse, not worth saving
+            return False
+
+    def extract_skill_from_code(self, code: str, name: str, description: str) -> str:
+        """Extract a canonical skill structure from raw code.
+        
+        Wraps code into a standard module with a run() entry-point and metadata.
+        """
+        header = f'''"""
+skill_name: {name}
+description: {description}
+Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Tags: auto-generated, agent-skill
+"""
+
+'''
+        try:
+            tree = ast.parse(code)
+            funcs = [node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
+            
+            if "run" in funcs:
+                return header + code
+                
+            if funcs:
+                # It has a function but no run(). Let's alias the last defined function.
+                # Usually scripts define a main worker function at the bottom.
+                main_func = funcs[-1]
+                return header + code + f'\n\n# Auto-generated entry-point\nrun = {main_func}\n'
+            
+            # No functions at all - just a flat script. Wrap it in a run()
+            indented_code = "\n".join("    " + line for line in code.split("\n"))
+            return header + f'def run(*args, **kwargs):\n{indented_code}\n    return locals().get("result", None)\n'
+            
+        except SyntaxError:
+            # Fallback for syntactically invalid code if any
+            return header + code
     
     def _is_valid_skill_name(self, name: str) -> bool:
         """Check if skill name is a valid Python identifier."""
@@ -264,7 +418,6 @@ Tags: {', '.join(tags or [])}
         lines = code.split('\n')
         if lines and lines[0].startswith('"""'):
             docstring_lines = []
-            in_docstring = True
             for i, line in enumerate(lines[1:], 1):
                 if '"""' in line:
                     break
@@ -272,12 +425,14 @@ Tags: {', '.join(tags or [])}
             
             docstring = '\n'.join(docstring_lines)
             
-            # Extract description (first non-empty line)
-            for line in docstring_lines:
-                line = line.strip()
-                if line and not line.startswith('Created:') and not line.startswith('Tags:'):
-                    metadata['description'] = line
-                    break
+            # If it matches the new format with explicit keys:
+            name_match = re.search(r'skill_name:\s*(.+)', docstring)
+            if name_match:
+                metadata['name'] = name_match.group(1).strip()
+                
+            desc_match = re.search(r'description:\s*(.+)', docstring)
+            if desc_match:
+                metadata['description'] = desc_match.group(1).strip()
             
             # Extract created date
             created_match = re.search(r'Created:\s*(.+)', docstring)
@@ -288,6 +443,14 @@ Tags: {', '.join(tags or [])}
             tags_match = re.search(r'Tags:\s*(.+)', docstring)
             if tags_match:
                 metadata['tags'] = tags_match.group(1).strip()
+                
+            # If description wasn't found via key, fallback to finding first non-empty line
+            if 'description' not in metadata:
+                for line in docstring_lines:
+                    line = line.strip()
+                    if line and not line.startswith('Created:') and not line.startswith('Tags:') and not line.startswith('skill_name:'):
+                        metadata['description'] = line
+                        break
         
         return metadata
     
@@ -305,7 +468,7 @@ Tags: {', '.join(tags or [])}
             
             # Create skill entry
             tags_str = f" `{', '.join(tags)}`" if tags else ""
-            entry = f"\n### {name}{tags_str}\n\n{description}\n\n```python\nfrom skills import {name}\n```\n"
+            entry = f"\n### {name}{tags_str}\n\n{description}\n\n```python\nfrom skills.{name} import run\n```\n"
             
             # Insert entry
             new_content = (
@@ -325,3 +488,14 @@ Tags: {', '.join(tags or [])}
         new_content = re.sub(pattern, "", content, flags=re.DOTALL)
         
         self.skills_file.write_text(new_content)
+
+    def _write_skill_index(self, skills: List[Dict[str, str]]) -> None:
+        """Write the skill_index.json manifest file."""
+        import json
+        with open(self.index_file, "w", encoding="utf-8") as f:
+            json.dump(skills, f, indent=2)
+
+    def _update_skill_index(self) -> None:
+        """Regenerate and write the skill_index.json based on current exact files."""
+        skills = self.list_skills()
+        self._write_skill_index(skills)
