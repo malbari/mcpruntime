@@ -89,6 +89,14 @@ class MontyExecutor(BaseExecutor):
             if not inputs:
                 inputs["__dummy_input__"] = True
             
+            # Provide globals()/locals() shims so LLM-generated code that calls
+            # globals() to inspect injected variables (e.g. CONTEXT_DATA) doesn't crash.
+            # Monty inputs ARE already in scope as direct variables, but some models
+            # defensively call globals() to check. The shim returns the inputs dict.
+            _inputs_snapshot = dict(inputs)
+            ext_funcs["globals"] = lambda: _inputs_snapshot
+            ext_funcs["locals"] = lambda: _inputs_snapshot
+            
             mnt = Monty(
                 code=code,
                 inputs=list(inputs.keys()),

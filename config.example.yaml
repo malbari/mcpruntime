@@ -5,9 +5,15 @@ execution:
   workspace_dir: ./workspace
   servers_dir: ./servers
   skills_dir: ./skills
-  sandbox_type: microsandbox
+  sandbox_type: opensandbox  # Default. Options: opensandbox | microsandbox | monty
   sandbox_image: python
   allow_network_access: false
+
+  # OpenSandbox settings (when sandbox_type: opensandbox)
+  # Requires: pip install opensandbox opensandbox-server && opensandbox-server start
+  # opensandbox_domain: localhost:8080  # or set OPENSANDBOX_DOMAIN env var
+  # opensandbox_image: python:3.11
+
   state:
     enabled: true  # Enable state persistence
     workspace_dir: ./workspace  # Where to store state

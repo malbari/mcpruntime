@@ -25,6 +25,7 @@ from client import (
     # Execution
     MicrosandboxExecutor,
     MontyExecutor,
+    OpenSandboxExecutor,
     SandboxPool,
     CodeExecutor,
     ExecutionResult,
@@ -69,6 +70,7 @@ from client.recursive_agent import RecursiveAgent
 from client.filesystem_helpers import FilesystemHelper as _FilesystemHelper
 from client.sandbox_executor import MicrosandboxExecutor as _MicrosandboxExecutor
 from client.monty_executor import MontyExecutor as _MontyExecutor
+from client.opensandbox_executor import OpenSandboxExecutor as _OpenSandboxExecutor
 from config.loader import load_config as _load_config
 from config.schema import AppConfig as _AppConfig, OptimizationConfig
 
@@ -87,6 +89,7 @@ __all__ = [
     # Execution
     "MicrosandboxExecutor",
     "MontyExecutor",
+    "OpenSandboxExecutor",
     "SandboxPool",
     "CodeExecutor",
     "ExecutionResult",
@@ -261,17 +264,24 @@ def create_agent(
             optimization_config=config.optimizations,
         )
         logger.info("Using Monty execution backend")
-    else:
-        # Default to Microsandbox
+    elif sandbox_type == "microsandbox":
         executor = _MicrosandboxExecutor(
             execution_config=config.execution,
             guardrail_config=config.guardrails,
             optimization_config=config.optimizations,
         )
-        if sandbox_type != "microsandbox":
-            logger.warning(f"Unknown sandbox type '{sandbox_type}', falling back to microsandbox")
+        logger.info("Using Microsandbox execution backend")
+    else:
+        # Default to OpenSandbox
+        executor = _OpenSandboxExecutor(
+            execution_config=config.execution,
+            guardrail_config=config.guardrails,
+            optimization_config=config.optimizations,
+        )
+        if sandbox_type != "opensandbox":
+            logger.warning(f"Unknown sandbox type '{sandbox_type}', falling back to opensandbox")
         else:
-            logger.info("Using Microsandbox execution backend")
+            logger.info("Using OpenSandbox execution backend")
     
     # Initialize agent helper
     agent = _AgentHelper(

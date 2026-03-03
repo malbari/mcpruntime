@@ -92,8 +92,11 @@ class StateConfig(BaseModel):
 class ExecutionConfig(BaseModel):
     """Configuration for code execution."""
 
-    sandbox_type: str = Field(default="microsandbox", description="Sandbox type")
+    sandbox_type: str = Field(default="opensandbox", description="Sandbox type: microsandbox, monty, opensandbox")
     sandbox_image: str = Field(default="python", description="Sandbox image")
+    # OpenSandbox-specific (local Docker server, no API key required)
+    opensandbox_domain: str = Field(default="localhost:8080", description="OpenSandbox local server domain:port (or OPENSANDBOX_DOMAIN env var)")
+    opensandbox_image: str = Field(default="python:3.11", description="Docker image to use for OpenSandbox containers")
     workspace_dir: str = Field(default="./workspace", description="Workspace directory")
     servers_dir: str = Field(default="./servers", description="Servers directory")
     skills_dir: str = Field(default="./skills", description="Skills directory")

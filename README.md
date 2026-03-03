@@ -19,31 +19,74 @@ What sets AgentKernel apart is its implementation of **[Code Actions as Tools](h
 
 ---
 
-## ⚡️ Quick Start (Docker)
+## ⚡️ Quick Start
 
-The fastest way to run AgentKernel is with Docker. This spins up a fully patched `microsandbox` environment and the AgentKernel runtime in a single command.
+AgentKernel works with **three execution backends**. Pick whichever matches your setup — they all work the same way once running.
+
+### Option A — OpenSandbox (Default, recommended)
+*Requires: Docker + one install command*
 
 ```bash
-git clone https://github.com/TJKlein/agentkernel.git
-cd agentkernel
+# 1. Install
+pip install agentkernel opensandbox opensandbox-server
 
-# Set your API key (or use a .env file; do not commit credentials)
+# 2. Configure server (one-time)
+opensandbox-server init-config ~/.sandbox.toml --example docker
+
+# 3. Start the server (keep this terminal open, or run in background)
+opensandbox-server start
+
+# 4. Run an agent
 export OPENAI_API_KEY=your-key-here
-
-# Start the environment
-docker-compose up --build
+python examples/00_simple_api.py
 ```
 
-You are now ready to run agents inside the container!
-
-```bash
-# In a new terminal
-docker-compose exec agentkernel python examples/00_simple_api.py
-```
-
-**Running locally:** Clone the repository, then run `make env` (copy `.env.example` to `.env` and set your API key), `make install-dev`, and `make test`. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full setup guide and microsandbox configuration.
+> **If you see** `❌ OpenSandbox server not reachable` — make sure Docker is running and `opensandbox-server start` is active.
 
 ---
+
+### Option B — Monty (Zero dependencies)
+*Requires: nothing extra — pure Python, in-process*
+
+```bash
+# 1. Install
+pip install agentkernel pydantic-monty
+
+# 2. Set sandbox type
+export SANDBOX_TYPE=monty   # or set sandbox_type: monty in config.yaml
+
+# 3. Run an agent
+export OPENAI_API_KEY=your-key-here
+python examples/00_simple_api.py
+```
+
+> Best for: quick experiments, logic-heavy tasks, CI environments.
+
+---
+
+### Option C — Microsandbox (Full OS isolation)
+*Requires: Rust toolchain + build from source*
+
+```bash
+# 1. Build the patched binary (Rust required)
+git clone https://github.com/TJKlein/microsandbox.git
+cd microsandbox && cargo build --release && cd ..
+
+# 2. Install AgentKernel
+pip install agentkernel
+
+# 3. Set sandbox type
+export SANDBOX_TYPE=microsandbox  # or set sandbox_type: microsandbox in config.yaml
+
+# 4. Run an agent
+export OPENAI_API_KEY=your-key-here
+python examples/00_simple_api.py
+```
+
+> Best for: tasks needing full system packages (`apt`, compilers, databases).
+
+---
+
 
 ## 1. Architecture
 
@@ -130,12 +173,14 @@ AgentKernel is designed for high-throughput, low-latency execution of agent-gene
 
 ### Execution Backends
 
-AgentKernel supports pluggable execution runtimes to match workload requirements. The **Docker** image comes pre-configured with `microsandbox` built from source.
+AgentKernel supports pluggable execution runtimes to match workload requirements.
 
-*   **Microsandbox (Default)**: Full Linux MicroVMs.
-    *   *Advantage*: Supports complex system dependencies (compilers, databases, apt packages) and full OS isolation.
+*   **OpenSandbox (Default)**: [Docker-based local sandbox](https://github.com/alibaba/OpenSandbox) by Alibaba.
+    *   *Advantage*: Standard Docker containers — runs any image (Python, Node, etc.) locally with no custom binary. Requires Docker + `opensandbox-server`.
+*   **Microsandbox**: Full Linux MicroVMs.
+    *   *Advantage*: Supports complex system dependencies (compilers, databases, apt packages) and full OS isolation. Set `sandbox_type: microsandbox`.
 *   **Monty (Experimental)**: [High-performance Python interpreter](https://github.com/pydantic/monty).
-    *   *Advantage*: Enables **sub-millisecond cold starts** and **in-process execution bridging**, ideal for pure-logic reasoning loops.
+    *   *Advantage*: Enables **sub-millisecond cold starts** and **in-process execution bridging**, ideal for pure-logic reasoning loops. Set `sandbox_type: monty`.
 
 ## 4. Manual Installation (Advanced)
 
@@ -153,7 +198,19 @@ cargo build --release
 pip install agentkernel
 ```
 
-### 3. Verify Setup
+### 3. (Optional) Install OpenSandbox
+
+If you prefer to use the OpenSandbox Docker-based backend instead of microsandbox:
+
+```bash
+pip install opensandbox opensandbox-server
+opensandbox-server init-config ~/.sandbox.toml --example docker
+opensandbox-server start
+```
+
+Then set `sandbox_type: opensandbox` (and optionally `opensandbox_domain: localhost:8080`) in your `config.yaml`.
+
+### 4. Verify Setup
 ```bash
 python verify_setup.py
 ```
@@ -203,7 +260,7 @@ Turn 2 (related task):
 
 This closed-loop creates an **accumulating advantage**: the more tasks the agent solves, the richer its tool library becomes, and the faster and cheaper future tasks execute.
 
-**Backend Compatibility:** Skill Evolution is seamlessly integrated across all AgentKernel runtimes natively. Whether executing standard scripts in `microsandbox`, running high-performance AST evaluations via `MontyExecutor`, or processing infinite-context chunks through the `RecursiveAgent`, evolved skills are automatically saved, discovered, and shared between all backends.
+**Backend Compatibility:** Skill Evolution is seamlessly integrated across all AgentKernel runtimes natively. Whether executing standard scripts in `microsandbox`, running containers via `OpenSandbox`, running high-performance AST evaluations via `MontyExecutor`, or processing infinite-context chunks through the `RecursiveAgent`, evolved skills are automatically saved, discovered, and shared between all backends.
 
 > See [`examples/17_skill_evolution.py`](examples/17_skill_evolution.py) for an end-to-end demo.
 
@@ -240,6 +297,7 @@ AgentKernel stands on the shoulders of giants.
 *   **[Recursive Language Models](https://arxiv.org/abs/2512.24601)** — Research into infinite context processing via recursive querying.
 *   **[Microsandbox](https://github.com/TJKlein/microsandbox)** — The robust MicroVM runtime for secure code execution.
 *   **[Monty](https://github.com/pydantic/monty)** — High-performance, sandboxed Python interpreter.
+*   **[OpenSandbox](https://github.com/alibaba/OpenSandbox)** — Docker/Kubernetes-based local sandbox platform by Alibaba.
 
 ## Supporting the Project
 

@@ -20,6 +20,7 @@ from client.skill_manager import SkillManager # Skill management
 # Execution Layer
 from client.sandbox_executor import MicrosandboxExecutor
 from client.monty_executor import MontyExecutor
+from client.opensandbox_executor import OpenSandboxExecutor
 from client.sandbox_pool import SandboxPool
 from client.base import CodeExecutor, ExecutionResult, ValidationResult
 
@@ -59,6 +60,7 @@ __all__ = [
     # Execution
     "MicrosandboxExecutor",
     "MontyExecutor",
+    "OpenSandboxExecutor",
     "SandboxPool",
     "CodeExecutor",
     "ExecutionResult",
