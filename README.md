@@ -350,4 +350,4 @@ If you find AgentKernel useful, consider starring the repository on GitHub. Star
 
 ## License
 
-MIT &copy; 2026 AgentKernel Team.
+MIT &copy; 2026 AgentKernel Team. Developed with the support of the **[Mantix](https://mantix.cloud)** AI Team.
