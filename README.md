@@ -1,6 +1,6 @@
 # MCPRuntime
 
-![MCPRuntime Banner](assets/mcpruntime_banner.png)
+![MCPRuntime Banner](https://raw.githubusercontent.com/TJKlein/mcpruntime/master/assets/mcpruntime_banner.png)
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/TJKlein/mcpruntime/actions/workflows/tests.yml/badge.svg)](https://github.com/TJKlein/mcpruntime/actions/workflows/tests.yml)
