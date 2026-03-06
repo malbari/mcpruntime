@@ -1,8 +1,26 @@
+## [0.1.4] - 2026-03-05
+
+### Added
+- Added  file complying with Apache 2.0 attribution for  and .
+
+### Changed
+- Updated  and  to append third-party open-source legal notices.
+- Expanded  to clearly contrast Programmatic Tool Calling (PTC) vs Recursive Language Models (RLM).
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+## [0.1.4] - 2026-03-05
+
+### Added
+- Added `NOTICE` file complying with Apache 2.0 attribution for `microsandbox` and `OpenSandbox`.
+
+### Changed
+- Updated `LICENSE` and `README.md` to append third-party open-source legal notices.
+- Expanded `README.md` to clearly contrast Programmatic Tool Calling (PTC) vs Recursive Language Models (RLM).
 
 ### Added
 - **OpenSandbox Execution Backend** (`client/opensandbox_executor.py`):
