@@ -10,7 +10,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "MCPRuntime Team"}
+    {name = "MCPRuntime Team"},
+    {name = "Mantix AI Research", url = "https://mantix.cloud"}
 ]
 keywords = ["ai-agents", "mcp", "programmatic-tool-calling", "sandbox", "async-execution"]
 classifiers = [

@@ -552,7 +552,7 @@ If you use MCPRuntime or PTC-Bench in your research, please cite:
 ```bibtex
 @software{ptcbench2025,
   title = {PTC-Bench: The Programmatic Tool Calling Benchmark},
-  author = {Klein, Tassilo},
+  author = {Klein, Tassilo and Mantix AI Research},
   year = {2025},
   url = {https://github.com/TJKlein/mcpruntime}
 }
@@ -560,6 +560,6 @@ If you use MCPRuntime or PTC-Bench in your research, please cite:
 
 ## License
 
-MIT &copy; 2026 MCPRuntime Team. Developed with the support of the **[Mantix](https://mantix.cloud)** AI Team.
+MIT &copy; 2026 MCPRuntime Team and Mantix AI Research ([mantix.cloud](https://mantix.cloud)).
 
 *Please note: MCPRuntime relies on third-party open-source components such as OpenSandbox, which are licensed under the Apache License 2.0. See the `NOTICE` and `LICENSE` files for full details and attribution.*

@@ -394,7 +394,7 @@ If you use PTC-Bench in research, please cite:
 ```bibtex
 @software{ptcbench2025,
   title = {PTC-Bench: The Programmatic Tool Calling Benchmark},
-  author = {Klein, Tassilo},
+  author = {Klein, Tassilo and Mantix AI Research},
   year = {2025},
   url = {https://github.com/TJKlein/mcpruntime}
 }
