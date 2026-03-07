@@ -2,10 +2,12 @@
 
 import pytest
 import os
+from pathlib import Path
 from client.agent_helper import AgentHelper
 from client.opensandbox_executor import OpenSandboxExecutor
 from client.filesystem_helpers import FilesystemHelper
 from client.base import ExecutionResult
+from config.schema import ExecutionConfig
 
 
 @pytest.mark.live
@@ -17,11 +19,18 @@ class TestVanillaOpenSandboxLive:
         fs_helper = FilesystemHelper(
             workspace_dir=str(temp_workspace),
             servers_dir=str(temp_servers),
-            skills_dir="./skills"
+            skills_dir=str(Path(temp_workspace) / "skills"),
         )
-
+        # Use temp paths in execution config so executor pushes same workspace/servers/skills as agent
+        execution = ExecutionConfig(
+            workspace_dir=str(temp_workspace),
+            servers_dir=str(temp_servers),
+            skills_dir=str(Path(temp_workspace) / "skills"),
+            timeout=mock_config.execution.timeout,
+            sandbox_type="opensandbox",
+        )
         executor = OpenSandboxExecutor(
-            execution_config=mock_config.execution
+            execution_config=execution
         )
 
         # Use live LLM config from .env so CodeGenerator gets api_key, endpoint, etc.

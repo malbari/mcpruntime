@@ -1,230 +1,814 @@
 [
   {
     "id": "PTC01",
-    "name": "Calculator: Sum of list",
+    "name": "Calculator: Basic addition",
     "difficulty": "easy",
-    "description": "Use the calculator tool to sum a list of numbers. Tests basic tool import and calling.",
-    "supported_backends": [
-      "opensandbox",
-      "subprocess"
-    ],
+    "description": "Basic calculator tool usage - add two numbers.",
+    "supported_backends": ["opensandbox", "subprocess"],
     "validation_type": "exact",
-    "tags": [
-      "ptc",
-      "calculator",
-      "tool-calling"
-    ],
-    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nnumbers = [10, 20, 30, 40, 50]\ntotal = 0\nfor n in numbers:\n    total = call_mcp_tool('calculator', 'add', {'a': total, 'b': n})\nprint(f'Sum: {total}')",
-    "expected_output": "Sum: 150\n",
-    "prompt": "Use the calculator tool to calculate the sum of [10, 20, 30, 40, 50]. Import call_mcp_tool from mock_mcp_client, then call it with tool_name='calculator', method='add', and the appropriate arguments. Print the result as 'Sum: {total}'",
-    "setup_files": [
-      {
-        "source": "mock_mcp_client.py",
-        "path": "mock_mcp_client.py"
-      }
-    ]
+    "tags": ["ptc", "calculator", "single-tool"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nresult = call_mcp_tool('calculator', 'add', {'a': 10, 'b': 20})\nprint(f'Result: {result}')",
+    "expected_output": "Result: 30\n",
+    "prompt": "Add 10 and 20 using the calculator tool. Call calculator.add with a=10 and b=20, then print 'Result: {result}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
   },
   {
     "id": "PTC02",
     "name": "Calculator: Complex expression",
     "difficulty": "easy",
-    "description": "Use the calculator to evaluate a complex expression. Tests expression parsing via tool.",
-    "supported_backends": [
-      "opensandbox",
-      "subprocess"
-    ],
+    "description": "Evaluate a mathematical expression using calculator.",
+    "supported_backends": ["opensandbox", "subprocess"],
     "validation_type": "fuzzy",
-    "tags": [
-      "ptc",
-      "calculator",
-      "tool-calling"
-    ],
+    "tags": ["ptc", "calculator", "expression"],
     "reference_code": "from mock_mcp_client import call_mcp_tool\n\nresult = call_mcp_tool('calculator', 'calculate', {'expression': '(100 + 200) * 3 - 50'})\nprint(f'Result: {result}')",
     "expected_output": "Result: 850.0\n",
-    "prompt": "Use the calculator tool to evaluate the expression '(100 + 200) * 3 - 50'. Import call_mcp_tool from mock_mcp_client, call it with tool_name='calculator', method='calculate', and expression in the args. Print the result as 'Result: {value}'",
-    "setup_files": [
-      {
-        "source": "mock_mcp_client.py",
-        "path": "mock_mcp_client.py"
-      }
-    ]
+    "prompt": "Calculate (100 + 200) * 3 - 50 using the calculator tool. Call calculator.calculate with the expression, then print 'Result: {result}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
   },
   {
     "id": "PTC03",
-    "name": "Weather: Get temperature",
+    "name": "Calculator: Sum of list",
     "difficulty": "easy",
-    "description": "Use the weather tool to get temperature for a location. Tests API-style tool calling.",
-    "supported_backends": [
-      "opensandbox",
-      "subprocess"
-    ],
-    "validation_type": "custom",
-    "custom_validator": "validate_weather_output",
-    "tags": [
-      "ptc",
-      "weather",
-      "tool-calling",
-      "api"
-    ],
-    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nweather = call_mcp_tool('weather', 'get_weather', {'location': 'Berlin', 'units': 'celsius'})\nprint(f\"Temperature in {weather['location']}: {weather['temperature']}\u00b0{weather['unit'][0].upper()}\")",
-    "expected_output": "Temperature in Berlin: 22\u00b0C\n",
-    "prompt": "Use the weather tool to get the current weather for Berlin in celsius. Import call_mcp_tool from mock_mcp_client, call it with tool_name='weather', method='get_weather', and appropriate arguments. The result will be a dict with 'location', 'temperature', and 'unit' keys. Print as 'Temperature in {location}: {temperature}\u00b0{unit[0].upper()}'",
-    "setup_files": [
-      {
-        "source": "mock_mcp_client.py",
-        "path": "mock_mcp_client.py"
-      }
-    ]
+    "description": "Sum a list of numbers using calculator.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "calculator", "list"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nnumbers = [10, 20, 30, 40, 50]\ntotal = call_mcp_tool('calculator', 'sum_list', {'numbers': numbers})\nprint(f'Sum: {total}')",
+    "expected_output": "Sum: 150\n",
+    "prompt": "Sum the list [10, 20, 30, 40, 50] using calculator.sum_list. Print 'Sum: {total}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
   },
   {
     "id": "PTC04",
-    "name": "Filesystem: Read and process",
-    "difficulty": "medium",
-    "description": "Use filesystem tool to read a file and process its contents. Tests I/O tool calling.",
-    "supported_backends": [
-      "opensandbox",
-      "subprocess"
-    ],
-    "validation_type": "exact",
-    "tags": [
-      "ptc",
-      "filesystem",
-      "tool-calling",
-      "io"
-    ],
-    "setup_files": [
-      {
-        "source": "mock_mcp_client.py",
-        "path": "mock_mcp_client.py"
-      },
-      {
-        "path": "data/numbers.txt",
-        "content": "10\n20\n30\n40\n50\n"
-      }
-    ],
-    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncontent = call_mcp_tool('filesystem', 'read_file', {'path': '/workspace/data/numbers.txt'})\nnumbers = [int(line) for line in content.strip().split('\\n') if line]\ntotal = sum(numbers)\nprint(f'Sum of file contents: {total}')",
-    "expected_output": "Sum of file contents: 150\n",
-    "prompt": "Use the filesystem tool to read /workspace/data/numbers.txt, sum the numbers in it, and print 'Sum of file contents: {total}'. Import call_mcp_tool from mock_mcp_client, call it with tool_name='filesystem', method='read_file', and path in the args. The file contains one number per line."
+    "name": "Calculator: Average calculation",
+    "difficulty": "easy",
+    "description": "Calculate average of a number list.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "fuzzy",
+    "tags": ["ptc", "calculator", "average"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nnumbers = [10, 20, 30, 40, 50]\navg = call_mcp_tool('calculator', 'avg_list', {'numbers': numbers})\nprint(f'Average: {avg:.2f}')",
+    "expected_output": "Average: 30.00\n",
+    "prompt": "Calculate the average of [10, 20, 30, 40, 50] using calculator.avg_list. Print 'Average: {avg:.2f}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
   },
   {
     "id": "PTC05",
-    "name": "Database: Query and aggregate",
-    "difficulty": "medium",
-    "description": "Use database tool to query records and aggregate results. Tests database tool calling.",
-    "supported_backends": [
-      "opensandbox",
-      "subprocess"
-    ],
-    "validation_type": "custom",
-    "custom_validator": "validate_database_output",
-    "tags": [
-      "ptc",
-      "database",
-      "tool-calling",
-      "sql"
-    ],
-    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Query all users\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['age']})\navg_age = sum(u['age'] for u in users) / len(users)\nprint(f'Average user age: {avg_age:.1f}')",
-    "expected_output": "Average user age: 35.0\n",
-    "prompt": "Use the database tool to query the 'users' table and get the 'age' column. Calculate the average age and print 'Average user age: {avg:.1f}'. Import call_mcp_tool from mock_mcp_client, call it with tool_name='database', method='query', and table/columns in the args. The result is a list of dicts with 'age' keys.",
-    "setup_files": [
-      {
-        "source": "mock_mcp_client.py",
-        "path": "mock_mcp_client.py"
-      }
-    ]
+    "name": "Calculator: Power and sqrt",
+    "difficulty": "easy",
+    "description": "Use power and square root operations.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "fuzzy",
+    "tags": ["ptc", "calculator", "power", "sqrt"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\npower = call_mcp_tool('calculator', 'power', {'base': 2, 'exponent': 10})\nsqrt = call_mcp_tool('calculator', 'sqrt', {'n': 144})\nprint(f'2^10={power}, sqrt(144)={sqrt:.0f}')",
+    "expected_output": "2^10=1024, sqrt(144)=12\n",
+    "prompt": "Calculate 2^10 using calculator.power and sqrt(144) using calculator.sqrt. Print '2^10={power}, sqrt(144)={sqrt:.0f}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
   },
   {
     "id": "PTC06",
-    "name": "Multi-tool: Weather + Calculator",
-    "difficulty": "medium",
-    "description": "Use multiple tools together to solve a problem. Tests tool composition.",
-    "supported_backends": [
-      "opensandbox",
-      "subprocess"
-    ],
+    "name": "Weather: Get temperature",
+    "difficulty": "easy",
+    "description": "Get current weather for a location.",
+    "supported_backends": ["opensandbox", "subprocess"],
     "validation_type": "custom",
-    "custom_validator": "validate_multi_tool_output",
-    "tags": [
-      "ptc",
-      "multi-tool",
-      "composition",
-      "weather",
-      "calculator"
-    ],
-    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Get weather for multiple cities\ncities = ['Berlin', 'Paris', 'London']\ntemps = []\nfor city in cities:\n    weather = call_mcp_tool('weather', 'get_weather', {'location': city, 'units': 'celsius'})\n    temps.append(weather['temperature'])\n\n# Calculate average temperature using calculator\ntotal = 0\nfor t in temps:\n    total = call_mcp_tool('calculator', 'add', {'a': total, 'b': t})\navg = call_mcp_tool('calculator', 'calculate', {'expression': f'{total} / {len(temps)}'})\n\nprint(f'Average temperature across {len(cities)} cities: {avg}\u00b0C')",
-    "expected_output": "Average temperature across 3 cities: 22.0\u00b0C\n",
-    "prompt": "Get weather for Berlin, Paris, and London using the weather tool, then calculate the average temperature using the calculator tool. Print 'Average temperature across 3 cities: {avg}\u00b0C'. You must use both tools - weather for fetching temps and calculator for the average calculation.",
-    "setup_files": [
-      {
-        "source": "mock_mcp_client.py",
-        "path": "mock_mcp_client.py"
-      }
-    ]
+    "custom_validator": "validate_weather_output",
+    "tags": ["ptc", "weather", "api"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nweather = call_mcp_tool('weather', 'get_weather', {'location': 'Berlin', 'units': 'celsius'})\nprint(f\"Temperature: {weather['temperature']}°C\")",
+    "expected_output": "Temperature: 22°C\n",
+    "prompt": "Get weather for Berlin in celsius using weather.get_weather. Print 'Temperature: {temp}°C'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
   },
   {
     "id": "PTC07",
-    "name": "Filesystem: List and process files",
-    "difficulty": "hard",
-    "description": "List directory contents and process each file. Tests directory traversal via tools.",
-    "supported_backends": [
-      "opensandbox",
-      "subprocess"
-    ],
+    "name": "Weather: Get forecast",
+    "difficulty": "easy",
+    "description": "Get multi-day weather forecast.",
+    "supported_backends": ["opensandbox", "subprocess"],
     "validation_type": "exact",
-    "tags": [
-      "ptc",
-      "filesystem",
-      "tool-calling",
-      "iteration"
-    ],
-    "setup_files": [
-      {
-        "source": "mock_mcp_client.py",
-        "path": "mock_mcp_client.py"
-      },
-      {
-        "path": "data/file1.txt",
-        "content": "100"
-      },
-      {
-        "path": "data/file2.txt",
-        "content": "200"
-      },
-      {
-        "path": "data/file3.txt",
-        "content": "300"
-      }
-    ],
-    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# List directory\nfiles = call_mcp_tool('filesystem', 'list_directory', {'path': '/workspace/data'})\n\n# Read each file and sum\ntotal = 0\nfor filename in files:\n    if filename.endswith('.txt'):\n        content = call_mcp_tool('filesystem', 'read_file', {'path': f'/workspace/data/{filename}'})\n        total += int(content.strip())\n\nprint(f'Total from {len(files)} files: {total}')",
-    "expected_output": "Total from 3 files: 600\n",
-    "prompt": "List all files in /workspace/data using the filesystem tool, then read each .txt file and sum their contents. Print 'Total from {count} files: {total}'. You must use both list_directory and read_file methods from the filesystem tool."
+    "tags": ["ptc", "weather", "forecast"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nforecast = call_mcp_tool('weather', 'get_forecast', {'location': 'Paris', 'days': 3, 'units': 'celsius'})\nprint(f\"Forecast days: {len(forecast['forecast'])}\")",
+    "expected_output": "Forecast days: 3\n",
+    "prompt": "Get a 3-day weather forecast for Paris using weather.get_forecast. Print 'Forecast days: {count}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
   },
   {
     "id": "PTC08",
-    "name": "Chained tools: Weather forecast analysis",
-    "difficulty": "hard",
-    "description": "Get forecast, extract data, calculate statistics using multiple tool calls. Tests complex PTC workflows.",
-    "supported_backends": [
-      "opensandbox",
-      "subprocess"
-    ],
-    "validation_type": "custom",
-    "custom_validator": "validate_forecast_analysis",
-    "tags": [
-      "ptc",
-      "weather",
-      "calculator",
-      "multi-tool",
-      "analysis"
-    ],
-    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Get 5-day forecast\nforecast = call_mcp_tool('weather', 'get_forecast', {'location': 'Berlin', 'days': 5, 'units': 'celsius'})\n\n# Extract temperatures and calculate range\ntemps = [day['temperature'] for day in forecast['forecast']]\nmin_temp = min(temps)\nmax_temp = max(temps)\n\n# Use calculator to compute range\ntemp_range = call_mcp_tool('calculator', 'calculate', {'expression': f'{max_temp} - {min_temp}'})\navg_temp = sum(temps) / len(temps)\n\nprint(f'5-day forecast for Berlin: min={min_temp}\u00b0C, max={max_temp}\u00b0C, range={temp_range}\u00b0C, avg={avg_temp:.1f}\u00b0C')",
-    "expected_output": "5-day forecast for Berlin: min=18\u00b0C, max=26\u00b0C, range=8\u00b0C, avg=22.0\u00b0C\n",
-    "prompt": "Get a 5-day weather forecast for Berlin using the weather tool, extract all temperatures, then use the calculator tool to find the min, max, range, and average. Print '5-day forecast for Berlin: min={min}\u00b0C, max={max}\u00b0C, range={range}\u00b0C, avg={avg:.1f}\u00b0C'. You must call get_forecast first, then process the data, then use the calculator for calculations.",
+    "name": "Filesystem: Read file",
+    "difficulty": "easy",
+    "description": "Read and display file contents.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "filesystem", "read"],
     "setup_files": [
-      {
-        "source": "mock_mcp_client.py",
-        "path": "mock_mcp_client.py"
-      }
-    ]
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/message.txt", "content": "Hello from PTC!"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncontent = call_mcp_tool('filesystem', 'read_file', {'path': '/workspace/data/message.txt'})\nprint(f'Content: {content}')",
+    "expected_output": "Content: Hello from PTC!\n",
+    "prompt": "Read the file /workspace/data/message.txt using filesystem.read_file. Print 'Content: {content}' (without extra newlines)."
+  },
+  {
+    "id": "PTC09",
+    "name": "Filesystem: List directory",
+    "difficulty": "easy",
+    "description": "List files in a directory.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "filesystem", "list"],
+    "setup_files": [
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/a.txt", "content": "a"},
+      {"path": "data/b.txt", "content": "b"},
+      {"path": "data/c.txt", "content": "c"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nfiles = call_mcp_tool('filesystem', 'list_directory', {'path': '/workspace/data'})\nprint(f'Files: {len(files)}')",
+    "expected_output": "Files: 3\n",
+    "prompt": "List the directory /workspace/data using filesystem.list_directory. Print 'Files: {count}' where count is the number of files."
+  },
+  {
+    "id": "PTC10",
+    "name": "Database: Query users",
+    "difficulty": "easy",
+    "description": "Query user records from database.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "query"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nusers = call_mcp_tool('database', 'query', {'table': 'users'})\nprint(f'Users: {len(users)}')",
+    "expected_output": "Users: 8\n",
+    "prompt": "Query all users from the database using database.query with table='users'. Print 'Users: {count}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC11",
+    "name": "Database: Query with columns",
+    "difficulty": "easy",
+    "description": "Query specific columns from database.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "columns"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['name', 'age']})\nfirst = users[0]\nprint(f\"First user: {first['name']}, {first['age']}\")",
+    "expected_output": "First user: Alice, 25\n",
+    "prompt": "Query users table getting only 'name' and 'age' columns. Print 'First user: {name}, {age}' for the first user.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC12",
+    "name": "Text: Word count",
+    "difficulty": "easy",
+    "description": "Count words in a text.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "text", "count"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ntext = 'The quick brown fox jumps over the lazy dog'\ncount = call_mcp_tool('text', 'word_count', {'text': text})\nprint(f'Words: {count}')",
+    "expected_output": "Words: 9\n",
+    "prompt": "Count words in 'The quick brown fox jumps over the lazy dog' using text.word_count. Print 'Words: {count}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC13",
+    "name": "Text: String manipulation",
+    "difficulty": "easy",
+    "description": "Split and join text.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "text", "split", "join"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ntext = 'apple,banana,cherry'\nitems = call_mcp_tool('text', 'split', {'text': text, 'delimiter': ','})\njoined = call_mcp_tool('text', 'join', {'items': items, 'delimiter': ' | '})\nprint(f'Joined: {joined}')",
+    "expected_output": "Joined: apple | banana | cherry\n",
+    "prompt": "Split 'apple,banana,cherry' by comma using text.split, then join with ' | ' using text.join. Print 'Joined: {result}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC14",
+    "name": "Math: Fibonacci sequence",
+    "difficulty": "easy",
+    "description": "Generate Fibonacci sequence.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "math", "fibonacci"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nfib = call_mcp_tool('math', 'fibonacci', {'n': 10})\nprint(f'Fibonacci: {fib}')",
+    "expected_output": "Fibonacci: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]\n",
+    "prompt": "Generate first 10 Fibonacci numbers using math.fibonacci. Print 'Fibonacci: {list}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC15",
+    "name": "Math: Factorial",
+    "difficulty": "easy",
+    "description": "Calculate factorial of a number.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "math", "factorial"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nresult = call_mcp_tool('math', 'factorial', {'n': 7})\nprint(f'7! = {result}')",
+    "expected_output": "7! = 5040\n",
+    "prompt": "Calculate 7 factorial using math.factorial. Print '7! = {result}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC16",
+    "name": "HTTP: Fetch data",
+    "difficulty": "easy",
+    "description": "Make HTTP GET request.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "http", "api"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nresponse = call_mcp_tool('http', 'get', {'url': 'https://api.example.com/users'})\nprint(f'Status: {response[\"status\"]}')",
+    "expected_output": "Status: 200\n",
+    "prompt": "Make HTTP GET to 'https://api.example.com/users' using http.get. Print 'Status: {status_code}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC17",
+    "name": "Calendar: List events",
+    "difficulty": "easy",
+    "description": "List calendar events.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "calendar", "events"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nevents = call_mcp_tool('calendar', 'list_events', {'start_date': '2024-01-01', 'end_date': '2024-01-31'})\nprint(f'Events: {len(events)}')",
+    "expected_output": "Events: 3\n",
+    "prompt": "List calendar events for January 2024 using calendar.list_events. Print 'Events: {count}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC18",
+    "name": "Email: Fetch emails",
+    "difficulty": "easy",
+    "description": "Fetch emails from inbox.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "email", "fetch"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nemails = call_mcp_tool('email', 'fetch', {})\nprint(f'Emails: {len(emails)}')",
+    "expected_output": "Emails: 3\n",
+    "prompt": "Fetch emails using email.fetch. Print 'Emails: {count}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC19",
+    "name": "Multi-tool: Weather + Calculator",
+    "difficulty": "medium",
+    "description": "Use weather and calculator together.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "fuzzy",
+    "tags": ["ptc", "weather", "calculator", "multi-tool"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncities = ['Berlin', 'Paris', 'London']\ntemps = []\nfor city in cities:\n    w = call_mcp_tool('weather', 'get_weather', {'location': city, 'units': 'celsius'})\n    temps.append(w['temperature'])\navg = call_mcp_tool('calculator', 'avg_list', {'numbers': temps})\nprint(f'Average temp: {avg:.1f}°C')",
+    "expected_output": "Average temp: 22.0°C\n",
+    "prompt": "Get weather for Berlin, Paris, London, calculate average temperature using calculator.avg_list. Print 'Average temp: {avg:.1f}°C'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC20",
+    "name": "Multi-tool: Filesystem + Calculator",
+    "difficulty": "medium",
+    "description": "Read numbers from file and sum them.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "filesystem", "calculator", "multi-tool"],
+    "setup_files": [
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/numbers.txt", "content": "10\n20\n30\n40\n50\n"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncontent = call_mcp_tool('filesystem', 'read_file', {'path': '/workspace/data/numbers.txt'})\nnumbers = [int(x) for x in content.strip().split('\\n')]\ntotal = call_mcp_tool('calculator', 'sum_list', {'numbers': numbers})\nprint(f'Total: {total}')",
+    "expected_output": "Total: 150\n",
+    "prompt": "Read /workspace/data/numbers.txt, parse each line as integer, sum using calculator.sum_list. Print 'Total: {sum}'"
+  },
+  {
+    "id": "PTC21",
+    "name": "Database: Average age calculation",
+    "difficulty": "medium",
+    "description": "Calculate average age from user records.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "fuzzy",
+    "tags": ["ptc", "database", "calculator", "aggregate"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['age']})\nages = [u['age'] for u in users]\navg = call_mcp_tool('calculator', 'avg_list', {'numbers': ages})\nprint(f'Average age: {avg:.1f}')",
+    "expected_output": "Average age: 35.8\n",
+    "prompt": "Query users table for ages, calculate average using calculator.avg_list. Print 'Average age: {avg:.1f}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC22",
+    "name": "Database: Sum of orders",
+    "difficulty": "medium",
+    "description": "Calculate total quantity from orders.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "aggregate"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ntotal = call_mcp_tool('database', 'aggregate', {'table': 'orders', 'type': 'sum', 'column': 'quantity'})\nprint(f'Total quantity: {total}')",
+    "expected_output": "Total quantity: 12\n",
+    "prompt": "Calculate sum of 'quantity' column from orders table using database.aggregate. Print 'Total quantity: {total}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC23",
+    "name": "Text processing: Search and replace",
+    "difficulty": "medium",
+    "description": "Search for text and replace it.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "text", "search", "replace"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ntext = 'Hello World, welcome to the World of PTC'\nfound = call_mcp_tool('text', 'search', {'text': text, 'pattern': 'World'})\nresult = call_mcp_tool('text', 'replace', {'text': text, 'old': 'World', 'new': 'Universe'})\nprint(f'Found: {found}, Result: {result}')",
+    "expected_output": "Found: True, Result: Hello Universe, welcome to the Universe of PTC\n",
+    "prompt": "Search for 'World' in the text, replace with 'Universe' using text.search and text.replace. Print 'Found: {found}, Result: {result}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC24",
+    "name": "Text processing: Regex matching",
+    "difficulty": "medium",
+    "description": "Use regex to find patterns.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "text", "regex"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ntext = 'Contact: alice@example.com or bob@test.org'\nemails = call_mcp_tool('text', 'regex_findall', {'text': text, 'pattern': r'[a-z]+@[a-z]+\\.[a-z]+'})\nprint(f'Emails found: {len(emails)}')",
+    "expected_output": "Emails found: 2\n",
+    "prompt": "Find all email addresses in the text using text.regex_findall with pattern r'[a-z]+@[a-z]+\\.[a-z]+'. Print 'Emails found: {count}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC25",
+    "name": "Filesystem: Multi-file processing",
+    "difficulty": "medium",
+    "description": "Read multiple files and process.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "filesystem", "multi-file"],
+    "setup_files": [
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/scores.txt", "content": "85\n90\n78\n92\n88\n"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncontent = call_mcp_tool('filesystem', 'read_file', {'path': '/workspace/data/scores.txt'})\nscores = [int(x) for x in content.strip().split('\\n')]\navg = sum(scores) / len(scores)\nprint(f'Average score: {avg:.1f}')",
+    "expected_output": "Average score: 86.6\n",
+    "prompt": "Read scores from /workspace/data/scores.txt, calculate average. Print 'Average score: {avg:.1f}'."
+  },
+  {
+    "id": "PTC26",
+    "name": "Filesystem: Count lines",
+    "difficulty": "medium",
+    "description": "Count lines in a file.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "filesystem", "lines"],
+    "setup_files": [
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/lines.txt", "content": "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncount = call_mcp_tool('filesystem', 'count_lines', {'path': '/workspace/data/lines.txt'})\nprint(f'Lines: {count}')",
+    "expected_output": "Lines: 5\n",
+    "prompt": "Count lines in /workspace/data/lines.txt using filesystem.count_lines. Print 'Lines: {count}'."
+  },
+  {
+    "id": "PTC27",
+    "name": "Math: Prime check",
+    "difficulty": "medium",
+    "description": "Check if numbers are prime.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "math", "primes"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nnumbers = [7, 10, 13, 20, 23]\nresults = []\nfor n in numbers:\n    is_p = call_mcp_tool('math', 'is_prime', {'n': n})\n    results.append((n, is_p))\nprimes = [n for n, p in results if p]\nprint(f'Primes: {primes}')",
+    "expected_output": "Primes: [7, 13, 23]\n",
+    "prompt": "Check which of [7, 10, 13, 20, 23] are prime using math.is_prime. Print 'Primes: {list}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC28",
+    "name": "Math: GCD and LCM",
+    "difficulty": "medium",
+    "description": "Calculate GCD and LCM.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "math", "gcd", "lcm"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ngcd = call_mcp_tool('math', 'gcd', {'a': 48, 'b': 18})\nlcm = call_mcp_tool('math', 'lcm', {'a': 4, 'b': 6})\nprint(f'GCD(48,18)={gcd}, LCM(4,6)={lcm}')",
+    "expected_output": "GCD(48,18)=6, LCM(4,6)=12\n",
+    "prompt": "Calculate GCD of 48 and 18, and LCM of 4 and 6. Print 'GCD(48,18)={gcd}, LCM(4,6)={lcm}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC29",
+    "name": "Transform: Sort data",
+    "difficulty": "medium",
+    "description": "Sort records by a field.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "transform", "sort"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ndata = [{'name': 'Bob', 'score': 70}, {'name': 'Alice', 'score': 90}, {'name': 'Carol', 'score': 80}]\nsorted_data = call_mcp_tool('transform', 'sort_by', {'data': data, 'key': 'score', 'reverse': True})\ntop = sorted_data[0]\nprint(f\"Top: {top['name']} with {top['score']}\")",
+    "expected_output": "Top: Alice with 90\n",
+    "prompt": "Sort the data by 'score' descending using transform.sort_by. Print 'Top: {name} with {score}' for the first item.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC30",
+    "name": "Transform: Group by field",
+    "difficulty": "medium",
+    "description": "Group records by a field.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "transform", "group"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['city']})\ngroups = call_mcp_tool('transform', 'group_by', {'data': users, 'key': 'city'})\nprint(f'Cities: {len(groups)}')",
+    "expected_output": "Cities: 4\n",
+    "prompt": "Query users, group by 'city' using transform.group_by. Print 'Cities: {count}' where count is the number of unique cities.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC31",
+    "name": "HTTP: Post data",
+    "difficulty": "medium",
+    "description": "Make HTTP POST request.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "http", "post"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ndata = {'name': 'Test User', 'email': 'test@example.com'}\nresponse = call_mcp_tool('http', 'post', {'url': 'https://api.example.com/users', 'data': data})\nprint(f'Created: {response[\"data\"][\"id\"]}')",
+    "expected_output": "Created: 999\n",
+    "prompt": "POST data to 'https://api.example.com/users' using http.post. Print 'Created: {id}' where id is from the response data.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC32",
+    "name": "Calendar: Create and count",
+    "difficulty": "medium",
+    "description": "Create event and count total events.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "calendar", "create"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncreated = call_mcp_tool('calendar', 'create_event', {'title': 'Meeting', 'date': '2024-02-01'})\ncount = call_mcp_tool('calendar', 'count_events', {})\nprint(f'Created: {created[\"created\"]}, Total: {count[\"count\"]}')",
+    "expected_output": "Created: True, Total: 3\n",
+    "prompt": "Create event 'Meeting' on 2024-02-01 using calendar.create_event, then count events with calendar.count_events. Print 'Created: {created}, Total: {count}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC33",
+    "name": "Email: Send email",
+    "difficulty": "medium",
+    "description": "Send an email.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "email", "send"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nsent = call_mcp_tool('email', 'send', {'to': 'user@example.com', 'subject': 'Hello', 'body': 'Test message'})\nprint(f'Sent: {sent[\"sent\"]}')",
+    "expected_output": "Sent: True\n",
+    "prompt": "Send email to 'user@example.com' with subject 'Hello' using email.send. Print 'Sent: {sent}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC34",
+    "name": "Chained: Weather forecast analysis",
+    "difficulty": "medium",
+    "description": "Analyze weather forecast data.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "weather", "analysis", "chained"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nforecast = call_mcp_tool('weather', 'get_forecast', {'location': 'Berlin', 'days': 5, 'units': 'celsius'})\ntemps = [day['temperature'] for day in forecast['forecast']]\nmin_t, max_t = min(temps), max(temps)\nrange_temp = call_mcp_tool('calculator', 'subtract', {'a': max_t, 'b': min_t})\nprint(f'Range: {range_temp}°C')",
+    "expected_output": "Range: 8°C\n",
+    "prompt": "Get 5-day Berlin forecast, find min and max temps, calculate range using calculator.subtract. Print 'Range: {range}°C'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC35",
+    "name": "Chained: Database + Text processing",
+    "difficulty": "medium",
+    "description": "Query database and process text.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "text", "chained"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['name']})\nnames = [u['name'] for u in users]\njoined = call_mcp_tool('text', 'join', {'items': names, 'delimiter': ', '})\nprint(f'Names: {joined}')",
+    "expected_output": "Names: Alice, Bob, Carol, David, Eve, Frank, Grace, Henry\n",
+    "prompt": "Query user names, join with ', ' using text.join. Print 'Names: {result}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC36",
+    "name": "Hard: Multi-city weather comparison",
+    "difficulty": "hard",
+    "description": "Compare weather across multiple cities with calculations.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "weather", "calculator", "multi-tool", "hard"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncities = ['Berlin', 'Paris', 'London', 'Tokyo', 'New York']\ntemps = []\nfor city in cities:\n    w = call_mcp_tool('weather', 'get_weather', {'location': city, 'units': 'celsius'})\n    temps.append(w['temperature'])\navg = call_mcp_tool('calculator', 'avg_list', {'numbers': temps})\nmax_temp = max(temps)\nmin_temp = min(temps)\nprint(f'Avg: {avg:.1f}°C, Range: {min_temp}-{max_temp}°C')",
+    "expected_output": "Avg: 20.6°C, Range: 15-26°C\n",
+    "prompt": "Get weather for 5 cities, calculate average, min, max. Print 'Avg: {avg:.1f}°C, Range: {min}-{max}°C'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC37",
+    "name": "Hard: Complex file processing",
+    "difficulty": "hard",
+    "description": "Read file, process with multiple tools.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "filesystem", "text", "calculator", "hard"],
+    "setup_files": [
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/data.csv", "content": "name,value\nAlice,100\nBob,200\nCarol,150\nDavid,300\n"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncontent = call_mcp_tool('filesystem', 'read_file', {'path': '/workspace/data/data.csv'})\nlines = call_mcp_tool('text', 'split', {'text': content, 'delimiter': '\\n'})\nvalues = []\nfor line in lines[1:]:\n    if line:\n        parts = call_mcp_tool('text', 'split', {'text': line, 'delimiter': ','})\n        if len(parts) > 1:\n            values.append(int(parts[1]))\ntotal = call_mcp_tool('calculator', 'sum_list', {'numbers': values})\nprint(f'Total: {total}')",
+    "expected_output": "Total: 750\n",
+    "prompt": "Read CSV, parse values from second column, sum them. Print 'Total: {sum}'."
+  },
+  {
+    "id": "PTC38",
+    "name": "Hard: Database join simulation",
+    "difficulty": "hard",
+    "description": "Join users and orders tables.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "join", "hard"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\njoined = call_mcp_tool('database', 'join', {'table': 'users', 'join_table': 'orders', 'on': 'id'})\ncompleted = [j for j in joined if j.get('orders_status') == 'completed']\nprint(f'Users with completed orders: {len(completed)}')",
+    "expected_output": "Users with completed orders: 2\n",
+    "prompt": "Join users and orders on 'id', count users with completed orders. Print 'Users with completed orders: {count}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC39",
+    "name": "Hard: Multi-step data pipeline",
+    "difficulty": "hard",
+    "description": "Complex data processing pipeline.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "transform", "calculator", "hard"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['age']})\nages = [u['age'] for u in users if u['age'] > 30]\nif ages:\n    avg = call_mcp_tool('calculator', 'avg_list', {'numbers': ages})\n    print(f'Average age (over 30): {avg:.1f}')\nelse:\n    print('Average age (over 30): 0.0')",
+    "expected_output": "Average age (over 30): 40.0\n",
+    "prompt": "Query users, filter age > 30, calculate average. Print 'Average age (over 30): {avg:.1f}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC40",
+    "name": "Hard: Recursive calculation",
+    "difficulty": "hard",
+    "description": "Calculate factorial of factorial.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "math", "calculator", "recursive"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nf3 = call_mcp_tool('math', 'factorial', {'n': 3})  # 6\nf6 = call_mcp_tool('math', 'factorial', {'n': f3})  # 720\nprint(f'(3!)! = {f6}')",
+    "expected_output": "(3!)! = 720\n",
+    "prompt": "Calculate 3!, then calculate factorial of that result. Print '(3!)! = {result}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC41",
+    "name": "Hard: Pattern analysis",
+    "difficulty": "hard",
+    "description": "Analyze patterns in data.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "math", "database", "analysis"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nprimes = call_mcp_tool('math', 'primes_up_to', {'n': 50})\nprime_count = len(primes)\nprime_sum = call_mcp_tool('calculator', 'sum_list', {'numbers': primes})\nprint(f'Primes ≤50: {prime_count}, Sum: {prime_sum}')",
+    "expected_output": "Primes ≤50: 15, Sum: 328\n",
+    "prompt": "Get primes up to 50, count them and sum using calculator.sum_list. Print 'Primes ≤50: {count}, Sum: {sum}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC42",
+    "name": "Hard: Complex text transformation",
+    "difficulty": "hard",
+    "description": "Multi-step text processing.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "text", "multi-step"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ntext = 'The Quick Brown Fox Jumps Over The Lazy Dog'\nlower = call_mcp_tool('text', 'to_lower', {'text': text})\nwords = call_mcp_tool('text', 'split', {'text': lower, 'delimiter': ' '})\nreversed_words = [call_mcp_tool('text', 'join', {'items': list(w)[::-1], 'delimiter': ''}) for w in words[:3]]\nresult = call_mcp_tool('text', 'join', {'items': reversed_words, 'delimiter': '-'})\nprint(f'Result: {result}')",
+    "expected_output": "Result: eht-kciuq-nworb\n",
+    "prompt": "Lowercase text, split, reverse first 3 words, join with '-'. Print 'Result: {result}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC43",
+    "name": "Hard: Multi-tool workflow",
+    "difficulty": "hard",
+    "description": "Complex workflow with many tools.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "weather", "database", "calculator", "workflow"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Get weather data\nweather = call_mcp_tool('weather', 'get_weather', {'location': 'Berlin', 'units': 'celsius'})\ntemp = weather['temperature']\n\n# Get user count\nusers = call_mcp_tool('database', 'query', {'table': 'users'})\nuser_count = len(users)\n\n# Calculate temperature per user\nper_user = call_mcp_tool('calculator', 'divide', {'a': temp, 'b': user_count})\nprint(f'Temp per user: {per_user:.2f}°C')",
+    "expected_output": "Temp per user: 2.75°C\n",
+    "prompt": "Get Berlin temp, count users, divide temp by user count. Print 'Temp per user: {result:.2f}°C'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC44",
+    "name": "Hard: File aggregation",
+    "difficulty": "hard",
+    "description": "Aggregate data from multiple files.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "filesystem", "aggregation"],
+    "setup_files": [
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/items.txt", "content": "item1\nitem2\nitem3\nitem4\nitem5\n"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncount = call_mcp_tool('filesystem', 'count_lines', {'path': '/workspace/data/items.txt'})\nsize = call_mcp_tool('filesystem', 'get_size', {'path': '/workspace/data/items.txt'})\nprint(f'Lines: {count}, Size: {size} bytes')",
+    "expected_output": "Lines: 5, Size: 30 bytes\n",
+    "prompt": "Count lines and get file size for /workspace/data/items.txt. Print 'Lines: {count}, Size: {size} bytes'."
+  },
+  {
+    "id": "PTC45",
+    "name": "Hard: API integration",
+    "difficulty": "hard",
+    "description": "Fetch and process API data.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "http", "transform", "api"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ndata = call_mcp_tool('http', 'fetch_json', {'url': 'https://api.example.com/data'})\nusers = data.get('users', [])\nnames = call_mcp_tool('transform', 'map_field', {'data': users, 'field': 'name'})\ncount = call_mcp_tool('transform', 'count_by', {'data': users, 'field': 'city'})\nprint(f'Users: {len(names)}, Cities: {len(count)}')",
+    "expected_output": "Users: 5, Cities: 4\n",
+    "prompt": "Fetch JSON, extract names, count by city. Print 'Users: {user_count}, Cities: {city_count}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC46",
+    "name": "Hard: Email workflow",
+    "difficulty": "hard",
+    "description": "Complex email processing.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "email", "text", "workflow"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nemails = call_mcp_tool('email', 'fetch', {})\nfrom_addresses = [e['from'] for e in emails]\nunique_senders = call_mcp_tool('transform', 'unique_values', {'data': [{'from': f} for f in from_addresses], 'field': 'from'})\nbody = call_mcp_tool('text', 'join', {'items': unique_senders, 'delimiter': ', '})\nsent = call_mcp_tool('email', 'send', {'to': 'summary@example.com', 'subject': 'Summary', 'body': body})\nprint(f'Sent summary to {len(unique_senders)} unique senders: {sent[\"sent\"]}')",
+    "expected_output": "Sent summary to 3 unique senders: True\n",
+    "prompt": "Fetch emails, get unique senders, join them, send summary. Print 'Sent summary to {count} unique senders: {sent}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC47",
+    "name": "Hard: Calendar scheduling",
+    "difficulty": "hard",
+    "description": "Schedule multiple events.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "calendar", "multi-step"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nevents = [('Meeting A', '2024-03-01'), ('Meeting B', '2024-03-02'), ('Meeting C', '2024-03-03')]\ncreated = 0\nfor title, date in events:\n    result = call_mcp_tool('calendar', 'create_event', {'title': title, 'date': date})\n    if result['created']:\n        created += 1\nprint(f'Created {created} events')",
+    "expected_output": "Created 3 events\n",
+    "prompt": "Create 3 events with different dates. Print 'Created {count} events'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC48",
+    "name": "Hard: Historical weather analysis",
+    "difficulty": "hard",
+    "description": "Analyze historical weather trends.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "weather", "analysis"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nhistory = call_mcp_tool('weather', 'get_historical', {'location': 'London', 'days_back': 7, 'units': 'celsius'})\ntemps = [day['temperature'] for day in history['history']]\navg = call_mcp_tool('calculator', 'avg_list', {'numbers': temps})\ntrend = 'rising' if temps[-1] > temps[0] else 'falling'\nprint(f'7-day avg: {avg:.1f}°C, Trend: {trend}')",
+    "expected_output": "7-day avg: 17.0°C, Trend: rising\n",
+    "prompt": "Get 7-day historical weather for London, calculate average temp, determine trend. Print '7-day avg: {avg:.1f}°C, Trend: {trend}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC49",
+    "name": "Hard: Prime factorization",
+    "difficulty": "hard",
+    "description": "Factor a number into primes.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "math", "factoring"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nn = 60\nfactors = []\nprimes = call_mcp_tool('math', 'primes_up_to', {'n': n})\nremaining = n\nfor p in primes:\n    while remaining % p == 0:\n        factors.append(p)\n        remaining = call_mcp_tool('calculator', 'divide', {'a': remaining, 'b': p})\nfactor_str = call_mcp_tool('text', 'join', {'items': factors, 'delimiter': ' x '})\nprint(f'60 = {factor_str}')",
+    "expected_output": "60 = 2 x 2 x 3 x 5\n",
+    "prompt": "Factor 60 into primes. Print '60 = {factors}' joined with ' x '.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC50",
+    "name": "Hard: Complex database query",
+    "difficulty": "hard",
+    "description": "Advanced database operations.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "complex"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Get max salary\nmax_sal = call_mcp_tool('database', 'aggregate', {'table': 'users', 'type': 'max', 'column': 'salary'})\n# Get min salary\nmin_sal = call_mcp_tool('database', 'aggregate', {'table': 'users', 'type': 'min', 'column': 'salary'})\n# Calculate range\nsal_range = call_mcp_tool('calculator', 'subtract', {'a': max_sal, 'b': min_sal})\nprint(f'Salary range: ${sal_range}')",
+    "expected_output": "Salary range: $50000\n",
+    "prompt": "Calculate salary range (max - min) from users table. Print 'Salary range: ${range}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC51",
+    "name": "Expert: Multi-file analysis",
+    "difficulty": "hard",
+    "description": "Process and correlate multiple files.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "filesystem", "text", "hard"],
+    "setup_files": [
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/keys.txt", "content": "alpha\nbeta\ngamma\n"},
+      {"path": "data/values.txt", "content": "100\n200\n300\n"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\nkeys = call_mcp_tool('filesystem', 'read_lines', {'path': '/workspace/data/keys.txt'})\nvalues = call_mcp_tool('filesystem', 'read_lines', {'path': '/workspace/data/values.txt'})\npairs = []\nfor k, v in zip(keys, values):\n    k_clean = call_mcp_tool('text', 'strip', {'text': k})\n    v_clean = call_mcp_tool('text', 'strip', {'text': v})\n    pairs.append(f'{k_clean}={v_clean}')\nresult = call_mcp_tool('text', 'join', {'items': pairs, 'delimiter': ', '})\nprint(f'Pairs: {result}')",
+    "expected_output": "Pairs: alpha=100, beta=200, gamma=300\n",
+    "prompt": "Read keys.txt and values.txt, pair them line by line, join as 'key=value'. Print 'Pairs: {result}'."
+  },
+  {
+    "id": "PTC52",
+    "name": "Expert: Weather prediction",
+    "difficulty": "hard",
+    "description": "Predict weather based on historical data.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "weather", "prediction", "analysis"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ncurrent = call_mcp_tool('weather', 'get_weather', {'location': 'Berlin', 'units': 'celsius'})\nforecast = call_mcp_tool('weather', 'get_forecast', {'location': 'Berlin', 'days': 3, 'units': 'celsius'})\nhist = call_mcp_tool('weather', 'get_historical', {'location': 'Berlin', 'days_back': 3, 'units': 'celsius'})\n\ncurrent_temp = current['temperature']\nforecast_temps = [d['temperature'] for d in forecast['forecast']]\nhist_temps = [d['temperature'] for d in hist['history']]\nall_temps = hist_temps + [current_temp] + forecast_temps\navg = call_mcp_tool('calculator', 'avg_list', {'numbers': all_temps})\nprint(f'7-day average (hist+curr+forecast): {avg:.1f}°C')",
+    "expected_output": "7-day average (hist+curr+forecast): 20.7°C\n",
+    "prompt": "Combine historical (3 days), current, and forecast (3 days) temps, calculate average. Print '7-day average (hist+curr+forecast): {avg:.1f}°C'."
+  },
+  {
+    "id": "PTC53",
+    "name": "Expert: Data correlation",
+    "difficulty": "hard",
+    "description": "Correlate data from multiple sources.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "weather", "correlation"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Get user cities\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['city']})\ncities = call_mcp_tool('transform', 'unique_values', {'data': users, 'field': 'city'})\n\n# Get temps for each city\ntemps = []\nfor city in cities:\n    w = call_mcp_tool('weather', 'get_weather', {'location': city, 'units': 'celsius'})\n    temps.append(w['temperature'])\n\navg_temp = call_mcp_tool('calculator', 'avg_list', {'numbers': temps})\nprint(f'Average temp across {len(cities)} user cities: {avg_temp:.1f}°C')",
+    "expected_output": "Average temp across 4 user cities: 20.5°C\n",
+    "prompt": "Get unique user cities, fetch weather for each, calculate average temp. Print 'Average temp across {count} user cities: {avg:.1f}°C'."
+  },
+  {
+    "id": "PTC54",
+    "name": "Expert: Full text processing",
+    "difficulty": "hard",
+    "description": "Complete text processing pipeline.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "text", "filesystem", "pipeline"],
+    "setup_files": [
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/text.txt", "content": "Hello World! This is a test. Hello again!"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\ntext = call_mcp_tool('filesystem', 'read_file', {'path': '/workspace/data/text.txt'})\nlower = call_mcp_tool('text', 'to_lower', {'text': text})\nwords = call_mcp_tool('text', 'split', {'text': lower, 'delimiter': ' '})\nwords_clean = [call_mcp_tool('text', 'strip', {'text': w}) for w in words]\ncount = len([w for w in words_clean if len(w) > 2])\nprint(f'Words >2 chars: {count}')",
+    "expected_output": "Words >2 chars: 6\n",
+    "prompt": "Read text, lowercase, split, count words with >2 characters. Print 'Words >2 chars: {count}'."
+  },
+  {
+    "id": "PTC55",
+    "name": "Expert: HTTP workflow",
+    "difficulty": "hard",
+    "description": "Complex HTTP API workflow.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "http", "workflow"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Fetch users\nresp = call_mcp_tool('http', 'get', {'url': 'https://api.example.com/users'})\nusers = resp.get('data', [])\n\n# Count\ncount = len(users)\n\n# Send notification\nresult = call_mcp_tool('email', 'send', {'to': 'admin@example.com', 'subject': 'User Count', 'body': str(count)})\nprint(f'Notified about {count} users: {result[\"sent\"]}')",
+    "expected_output": "Notified about 3 users: True\n",
+    "prompt": "Fetch users via HTTP GET, count them, send email notification. Print 'Notified about {count} users: {sent}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC56",
+    "name": "Expert: Math sequence",
+    "difficulty": "hard",
+    "description": "Generate and analyze math sequence.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "math", "fibonacci", "primes"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Get Fibonacci numbers up to 100\nfib = call_mcp_tool('math', 'fibonacci', {'n': 12})\nfib_under_100 = [x for x in fib if x < 100]\n\n# Check which are prime\nprimes_in_fib = []\nfor n in fib_under_100:\n    if n > 1 and call_mcp_tool('math', 'is_prime', {'n': n}):\n        primes_in_fib.append(n)\n\nprint(f'Primes in Fibonacci (<100): {primes_in_fib}')",
+    "expected_output": "Primes in Fibonacci (<100): [2, 3, 5, 13, 89]\n",
+    "prompt": "Get Fibonacci up to 100, find primes among them. Print 'Primes in Fibonacci (<100): {list}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC57",
+    "name": "Expert: Transform pipeline",
+    "difficulty": "hard",
+    "description": "Multi-step data transformation.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "transform", "pipeline"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Get users\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['name', 'city', 'salary']})\n\n# Group by city\nby_city = call_mcp_tool('transform', 'group_by', {'data': users, 'key': 'city'})\n\n# Calculate average salary per city\navg_by_city = {}\nfor city, city_users in by_city.items():\n    salaries = call_mcp_tool('transform', 'map_field', {'data': city_users, 'field': 'salary'})\n    avg = call_mcp_tool('calculator', 'avg_list', {'numbers': salaries})\n    avg_by_city[city] = int(avg)\n\nprint(f'Average salaries by city: {avg_by_city}')",
+    "expected_output": "Average salaries by city: {'Berlin': 76666, 'Paris': 57500, 'London': 72500, 'Tokyo': 90000}\n",
+    "prompt": "Group users by city, calculate average salary per city. Print 'Average salaries by city: {dict}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC58",
+    "name": "Expert: Advanced filtering",
+    "difficulty": "hard",
+    "description": "Complex data filtering.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "filter", "transform"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Filter users by age > 30 and salary > 60000\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['name', 'age', 'salary']})\nfiltered = [u for u in users if u['age'] > 30 and u['salary'] > 60000]\n\n# Sort by salary descending\nsorted_users = call_mcp_tool('transform', 'sort_by', {'data': filtered, 'key': 'salary', 'reverse': True})\n\nnames = call_mcp_tool('transform', 'map_field', {'data': sorted_users, 'field': 'name'})\nprint(f'High earners over 30: {names}')",
+    "expected_output": "High earners over 30: ['Henry', 'Eve', 'David', 'Grace']\n",
+    "prompt": "Filter users where age>30 AND salary>60000, sort by salary desc, extract names. Print 'High earners over 30: {names}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC59",
+    "name": "Expert: Cross-tool analysis",
+    "difficulty": "hard",
+    "description": "Analyze across multiple tools.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "database", "weather", "calculator", "cross-tool"],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Get user count per city\nusers = call_mcp_tool('database', 'query', {'table': 'users', 'columns': ['city']})\nuser_counts = call_mcp_tool('transform', 'count_by', {'data': users, 'field': 'city'})\n\n# Get temp per city and calculate users per degree\nratios = {}\nfor city, count in user_counts.items():\n    w = call_mcp_tool('weather', 'get_weather', {'location': city, 'units': 'celsius'})\n    temp = w['temperature']\n    ratio = call_mcp_tool('calculator', 'divide', {'a': count, 'b': temp})\n    ratios[city] = round(ratio, 2)\n\nprint(f'Users per degree by city: {ratios}')",
+    "expected_output": "Users per degree by city: {'Berlin': 0.14, 'Paris': 0.13, 'London': 0.13, 'Tokyo': 0.06}\n",
+    "prompt": "Count users per city, get weather, calculate users/temp ratio per city. Print 'Users per degree by city: {ratios}'.",
+    "setup_files": [{"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"}]
+  },
+  {
+    "id": "PTC60",
+    "name": "Expert: Complete workflow",
+    "difficulty": "hard",
+    "description": "Full multi-tool workflow.",
+    "supported_backends": ["opensandbox", "subprocess"],
+    "validation_type": "exact",
+    "tags": ["ptc", "multi-tool", "workflow", "expert"],
+    "setup_files": [
+      {"source": "mock_mcp_client.py", "path": "mock_mcp_client.py"},
+      {"path": "data/report.txt", "content": "Q1: 100\nQ2: 150\nQ3: 200\nQ4: 250\n"}
+    ],
+    "reference_code": "from mock_mcp_client import call_mcp_tool\n\n# Read and parse\ncontent = call_mcp_tool('filesystem', 'read_file', {'path': '/workspace/data/report.txt'})\nlines = call_mcp_tool('text', 'split', {'text': content, 'delimiter': '\\n'})\n\n# Extract values\nvalues = []\nfor line in lines:\n    if ':' in line:\n        parts = call_mcp_tool('text', 'split', {'text': line, 'delimiter': ': '})\n        if len(parts) == 2:\n            values.append(int(parts[1]))\n\n# Calculate stats\ntotal = call_mcp_tool('calculator', 'sum_list', {'numbers': values})\navg = call_mcp_tool('calculator', 'avg_list', {'numbers': values})\n\n# Send report\nreport = f'Total: {total}, Average: {avg:.1f}'\nsent = call_mcp_tool('email', 'send', {'to': 'reports@example.com', 'subject': 'Quarterly Report', 'body': report})\n\nprint(f'Report sent: {sent[\"sent\"]} with {len(values)} quarters')",
+    "expected_output": "Report sent: True with 4 quarters\n",
+    "prompt": "Parse report.txt, extract Q values, calculate total and average, send email report. Print 'Report sent: {sent} with {count} quarters'."
   }
 ]

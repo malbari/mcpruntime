@@ -114,6 +114,15 @@ def compute_metrics(results: List[TaskResult]) -> BenchmarkMetrics:
         v["avg_time"] = sum(v["times"]) / len(v["times"]) if v["times"] else 0.0
         del v["times"]
     
+    # NEW: Failure mode breakdown
+    failure_breakdown = {}
+    for r in results:
+        if not r.success and not r.skipped:
+            failure_type = getattr(r, "failure_type", None) or "UNKNOWN"
+            if failure_type not in failure_breakdown:
+                failure_breakdown[failure_type] = 0
+            failure_breakdown[failure_type] += 1
+    
     # NEW: Approach breakdown (PTC vs FC)
     approaches = {}
     for r in results:
@@ -166,6 +175,7 @@ def compute_metrics(results: List[TaskResult]) -> BenchmarkMetrics:
         avg_iterations=avg_iterations,
         avg_time_to_success=avg_tts,
         avg_llm_generation_time=avg_llm_time,
+        failure_breakdown=failure_breakdown,
         avg_llm_calls=avg_llm_calls,
         avg_tool_calls=avg_tool_calls,
         avg_retries=avg_retries,

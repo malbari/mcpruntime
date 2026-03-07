@@ -29,6 +29,15 @@ class ReportGenerator:
             lines.append("*Evaluating code-first tool calling approach*")
         
         lines.append("")
+        # Clarify whether results are LLM-based or reference-code baseline (meaningful results)
+        ptc_results = [r for r in results if getattr(r, "approach", "ptc") == "ptc"]
+        used_llm = any(getattr(r, "used_llm", False) for r in ptc_results) if ptc_results else False
+        if approach in ("ptc", "both") and ptc_results:
+            if used_llm:
+                lines.append("*Results use **LLM-generated code** (agent evaluation).*")
+            else:
+                lines.append("*Results use **reference-code baseline** (no LLM). Set `--llm-provider` and API key for agent evaluation.*")
+            lines.append("")
         
         # Show approach breakdown if both were run
         if approach == "both" and metrics.approach_breakdown and len(metrics.approach_breakdown) >= 2:

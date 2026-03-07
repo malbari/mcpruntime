@@ -1,10 +1,13 @@
 # Live E2E Tests
 
-These tests call a live LLM (OpenAI or Azure OpenAI). Configuration is loaded from the project `.env` file via `config.loader`. An API key and a chat-capable model are required; see CONTRIBUTING.md for setup.
+These tests call a live LLM (OpenAI or Azure OpenAI). Configuration is loaded from the project `.env` file via `config.loader`.
+
+- **With a real API key:** Tests run against the live LLM and OpenSandbox (Docker must be running for OpenSandbox).
+- **With a placeholder or no key:** Tests are **skipped** (exit 0), so CI without secrets does not fail.
 
 ## Running the tests
 
-Set the required variables in `.env` at the project root, then:
+Set the required variables in `.env` at the project root (use real values to run; placeholders cause skip), then:
 
 ```bash
 pytest tests/e2e/ -v -m live

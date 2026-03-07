@@ -4,14 +4,19 @@
 
 This document explains how to interpret results from the benchmark comparison of **Programmatic Tool Calling (PTC)** vs **Function Calling (FC)**.
 
-## Running the Comparison
+## Running the Benchmark
 
-To generate empirical PTC vs FC results:
+PTC-Bench has **60 PTC tasks** (easy / medium / hard). To generate results for reports and graphics:
 
 ```bash
-# Run both approaches on the same tasks
-python -m benchmarks run --backend opensandbox --llm-provider openai --approach both --categories ptc --output results/comparison.md
+# Full PTC run (60 tasks); save report for graphics
+python -m benchmarks run --backend opensandbox --llm-provider azure_openai --categories ptc --output results/ptc_benchmark_report.md
+
+# Representative subset (easy only, ~18 tasks, ~7 min)
+python -m benchmarks run --backend opensandbox --llm-provider azure_openai --categories ptc --difficulties easy --output results/ptc_easy_report.md
 ```
+
+Then regenerate chart assets: `python assets/generate_charts.py`
 
 This produces a comparison report with:
 - Per-approach success rates
@@ -90,4 +95,4 @@ After running `--approach both`, look for these patterns:
 
 ## Full Methodology
 
-For detailed task taxonomy, statistical rigor, and NeurIPS-compliant reporting guidelines, see **[PTC-Bench Guide](../docs/benchmark_guide.md)**.
+For detailed task taxonomy, statistical rigor, and reporting guidelines, see **[PTC-Bench Guide](../docs/benchmark_guide.md)**.

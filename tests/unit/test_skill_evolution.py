@@ -155,7 +155,7 @@ def test_agent_helper_save_on_success(skill_manager):
         auto_save_skills=True
     )
     
-    agent.code_generator.generate_complete_code = lambda **kwargs: "def my_cool_func():\n    return 42\n"
+    agent.code_generator.generate_complete_code = lambda **kwargs: ("def my_cool_func():\n    return 42\n", False)
     
     # Run the execution wrapper
     agent.execute_task("Build a reliable weather parser", verbose=False)

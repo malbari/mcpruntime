@@ -1,6 +1,6 @@
 # PTC-Bench: The Programmatic Tool Calling Benchmark
 
-**PTC-Bench** is the first systematic benchmark comparing **Programmatic Tool Calling (PTC)** — where agents generate code that imports and calls tools — vs traditional **Function Calling (FC)** — where agents emit JSON tool calls.
+**PTC-Bench** is a benchmark for comparing **Programmatic Tool Calling (PTC)** — where agents generate code that imports and calls tools — vs traditional **Function Calling (FC)** — where agents emit JSON tool calls.
 
 > **Research Question:** When should AI agents use Programmatic Tool Calling (code-first) vs traditional Function Calling (JSON-first)? We provide empirical answers.
 
@@ -51,6 +51,39 @@ Runs hand-written reference code (no LLM):
 python -m benchmarks run --backend opensandbox --llm-provider none
 ```
 
+### 5. With recursion (RLM)
+
+Enable RLM for tasks that use context data and `ask_llm`:
+
+```bash
+python -m benchmarks run --backend opensandbox --llm-provider openai --recursive
+```
+
+### 6. Skill evolution demo
+
+Run the implicit skill-evolution demo (no LLM required for baseline):
+
+```bash
+python -m benchmarks skill-evolution --backend subprocess
+```
+
+### 7. Compare backends
+
+Compare two backends on the same tasks:
+
+```bash
+python -m benchmarks compare --backends subprocess,opensandbox --categories compute --llm-provider none
+```
+
+## Supported Setups
+
+| Backend       | LLM provider | Approach (ptc / fc / both) | Recursive | Profile (quick / standard / full) |
+|---------------|--------------|----------------------------|-----------|-----------------------------------|
+| subprocess    | none / openai / azure_openai | ptc, function_calling, both | yes       | quick, standard, full             |
+| opensandbox   | none / openai / azure_openai | ptc, function_calling, both | yes       | quick, standard, full             |
+
+All combinations above are supported. Use `--llm-provider none` for baseline (reference code only); use an API key for real LLM evaluation.
+
 ## Options
 
 | Option | Description |
@@ -87,6 +120,6 @@ The harness then computes and reports:
 
 ## Full methodology
 
-For detailed taxonomy, metrics, and NeurIPS-compliant reporting, see **[PTC-Bench Guide](../docs/benchmark_guide.md)**.
+For detailed taxonomy, metrics, and reporting guidelines, see **[PTC-Bench Guide](../docs/benchmark_guide.md)**.
 
 For expected results and interpretations, see **[RESULTS.md](RESULTS.md)**.

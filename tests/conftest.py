@@ -77,11 +77,16 @@ def live_app_config():
 
 @pytest.fixture
 def live_llm_client(live_app_config):
-    """Return a live OpenAI or Azure client from config loaded from .env. Fails if API key is not set."""
+    """Return a live OpenAI or Azure client from config loaded from .env. Skips if API key is not set or is placeholder."""
     llm = live_app_config.llm
     api_key = llm.api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("AZURE_OPENAI_API_KEY")
-    if not api_key:
-        pytest.fail("API key required. Set OPENAI_API_KEY or AZURE_OPENAI_API_KEY in .env")
+    if not api_key or not api_key.strip():
+        pytest.skip("Live LLM tests require OPENAI_API_KEY or AZURE_OPENAI_API_KEY in .env (skip when using placeholder)")
+    key_lower = api_key.strip().lower()
+    if key_lower in ("your-openai-key-here", "your-azure-key-here", "your-key-here"):
+        pytest.skip("Live LLM tests require a real API key; replace placeholder in .env to run")
+    if key_lower.startswith("your-") and "key" in key_lower:
+        pytest.skip("Live LLM tests require a real API key; replace placeholder in .env to run")
 
     try:
         from openai import OpenAI, AzureOpenAI
@@ -93,7 +98,7 @@ def live_llm_client(live_app_config):
             )
         return OpenAI(api_key=api_key)
     except ImportError as e:
-        pytest.fail(f"openai package not installed: {e}")
+        pytest.skip(f"openai package required for live tests: {e}")
 
 
 @pytest.fixture

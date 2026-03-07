@@ -132,6 +132,12 @@ class TaskResult:
     tool_calls: int = 0       # Number of tool calls made (FC mode)
     retries: int = 0          # Tool call retries / error recovery attempts
     cost: float = 0.0         # Estimated cost in USD
+    
+    # NEW: Failure mode analysis
+    failure_type: Optional[str] = None  # Categorized failure: TIMEOUT, IMPORT_ERROR, SYNTAX_ERROR, RUNTIME_ERROR, OUTPUT_MISMATCH, SANDBOX_VIOLATION, UNKNOWN
+    
+    # Whether this task used LLM-generated code (True) or reference/rule-based (False) — for meaningful report labeling
+    used_llm: bool = False
 
 
 @dataclass
@@ -160,6 +166,10 @@ class BenchmarkMetrics:
     # Breakdowns
     category_breakdown: Dict[str, Dict[str, Any]]
     difficulty_breakdown: Dict[str, Dict[str, Any]]
+    
+    # NEW: Failure mode breakdown
+    failure_breakdown: Dict[str, int] = field(default_factory=dict)
+    # Structure: {"TIMEOUT": 5, "IMPORT_ERROR": 3, ...}
     
     # NEW: Approach breakdown (PTC vs FC comparison)
     approach_breakdown: Dict[str, Dict[str, Any]] = field(default_factory=dict)

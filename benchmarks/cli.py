@@ -44,6 +44,13 @@ def main():
                            help="Approach to benchmark: 'ptc' (Programmatic Tool Calling - code in sandbox), "
                                 "'function_calling' (traditional JSON tool calls), or 'both' for comparison. Default: ptc")
     
+    # NEW: Benchmark profiles for one-command runs
+    run_parser.add_argument("--profile", type=str, default=None,
+                           choices=["quick", "standard", "full"],
+                           help="Benchmark profile: 'quick' (10 tasks, ~1 min), "
+                                "'standard' (30 tasks, ~5 min), 'full' (89 tasks, ~30 min). "
+                                "Overrides --categories if specified.")
+    
     # LLM Settings (Agent Mode)
     run_parser.add_argument("--llm-provider", type=str, default="openai",
                            choices=["openai", "anthropic", "google", "azure_openai", "none"],
@@ -72,6 +79,15 @@ def main():
     cmp_parser.add_argument("--recursive", action="store_true",
                            help="Enable RLM for tasks with context_data (both control and test).")
 
+    # SKILL_EVOLUTION command
+    evo_parser = subparsers.add_parser("skill-evolution", help="Run skill evolution demo showing implicit skill benefits")
+    evo_parser.add_argument("--backend", type=str, default="subprocess", 
+                           choices=["opensandbox", "subprocess"],
+                           help="Backend to run on")
+    evo_parser.add_argument("--categories", type=str, 
+                           help="Categories to run (default: skill_evolution)")
+    evo_parser.add_argument("--output", type=str, help="Save results to file")
+    
     # DEBUG command
     dbg_parser = subparsers.add_parser("debug", help="Debug a single task")
     dbg_parser.add_argument("--task", type=str, required=True, help="Task ID (e.g. compute_001)")
@@ -82,9 +98,87 @@ def main():
     if args.command == "debug":
         debug_task(args.task, args.backend)
         return
-        
-    categories = args.categories.split(",") if args.categories else None
     
+    if args.command == "skill-evolution":
+        # Import here to avoid circular imports
+        from .skill_evolution_runner import SkillEvolutionRunner
+        
+        print("🎓 Skill Evolution Demo")
+        print("="*60)
+        print("Demonstrates implicit benefits from self-growing skills:\n")
+        print("1️⃣  Early tasks create foundational skills")
+        print("2️⃣  Later tasks see skills in context and naturally reuse")
+        print("3️⃣  Result: Speedup without explicit skill instructions\n")
+        
+        categories = args.categories.split(",") if args.categories else ["skill_evolution"]
+        
+        # Load tasks
+        runner = BenchmarkRunner(backend=args.backend, n_runs=1)
+        tasks = runner.load_tasks(categories=categories)
+        
+        if not tasks:
+            print(f"❌ No tasks found in categories: {categories}")
+            print("   Make sure tasks exist in benchmarks/tasks/{category}/")
+            sys.exit(1)
+        
+        print(f"📋 Running {len(tasks)} tasks with skill evolution enabled\n")
+        
+        # Run with skill evolution
+        evo_runner = SkillEvolutionRunner(
+            backend=args.backend,
+            n_runs=1,
+            enable_skill_evolution=True
+        )
+        
+        results, metrics = evo_runner.run_suite_with_evolution(tasks)
+        
+        # Save if requested
+        if getattr(args, "output", None):
+            import json
+            output_data = {
+                "metrics": {
+                    "total_tasks": metrics.total_tasks,
+                    "skills_created": metrics.skills_created,
+                    "skills_reused": metrics.skills_reused,
+                    "time_speedup": metrics.time_speedup,
+                    "cost_savings": metrics.cost_savings,
+                    "llm_call_reduction": metrics.llm_call_reduction,
+                },
+                "skill_catalog": metrics.skill_catalog,
+                "task_results": metrics.task_results
+            }
+            with open(args.output, 'w') as f:
+                json.dump(output_data, f, indent=2)
+            print(f"\n💾 Results saved to {args.output}")
+        
+        return
+        
+    # Handle benchmark profiles
+    profile = getattr(args, "profile", None)
+    if profile:
+        # Map profile to categories and runs
+        if profile == "quick":
+            categories = ["compute", "ptc"]
+            difficulties = None
+            # Override runs to 1 for speed
+            if args.runs == 1:  # Only override if user didn't specify
+                args.runs = 1
+            print(f"🏃 Quick profile: ~10 tasks, ~1 minute")
+        elif profile == "standard":
+            categories = ["compute", "ptc", "io", "import_heavy"]
+            difficulties = None
+            if args.runs == 1:
+                args.runs = 1
+            print(f"🏃 Standard profile: ~30 tasks, ~5 minutes")
+        elif profile == "full":
+            categories = None  # All categories
+            difficulties = None
+            if args.runs == 1:
+                args.runs = 1
+            print(f"🏃 Full profile: ~89 tasks, ~30 minutes")
+    else:
+        categories = args.categories.split(",") if args.categories else None
+        
     if getattr(args, "difficulties", None):
         difficulties = args.difficulties.split(",")
     else:

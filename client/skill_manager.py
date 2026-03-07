@@ -94,6 +94,7 @@ Each skill should:
         code: str,
         description: str,
         tags: Optional[List[str]] = None,
+        source_task: Optional[str] = None,
     ) -> Dict[str, str]:
         """Save a new skill.
         
@@ -102,6 +103,7 @@ Each skill should:
             code: Python code for the skill
             description: Human-readable description
             tags: Optional list of tags for categorization
+            source_task: Optional task ID that created this skill (e.g. for benchmarks)
             
         Returns:
             Dictionary with status and file path
@@ -124,7 +126,7 @@ Each skill should:
                 f"Skill '{name}' already exists. Use update_skill() to replace it."
             )
         
-        return self._write_skill_files(name, code, description, tags)
+        return self._write_skill_files(name, code, description, tags, source_task=source_task)
 
     def update_skill(
         self,
@@ -157,18 +159,26 @@ Each skill should:
 
         return self._write_skill_files(name, code, description, tags)
 
-    def _write_skill_files(self, name: str, code: str, description: str, tags: Optional[List[str]]) -> Dict[str, str]:
+    def _write_skill_files(
+        self,
+        name: str,
+        code: str,
+        description: str,
+        tags: Optional[List[str]],
+        source_task: Optional[str] = None,
+    ) -> Dict[str, str]:
         """Internal helper to write the code file and update the registries."""
         skill_file = self.skills_dir / f"{name}.py"
         
         # Add header comment to code if it doesn't have one
         if not code.strip().startswith('"""'):
+            source_line = f"source_task: {source_task}\n" if source_task else ""
             header = f'''"""
 skill_name: {name}
 description: {description}
 Created: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Tags: {', '.join(tags or [])}
-"""
+{source_line}"""
 
 '''
             full_code = header + code
@@ -239,13 +249,16 @@ Tags: {', '.join(tags or [])}
             code = skill_file.read_text()
             metadata = self._extract_metadata(code)
             
-            skills.append({
+            skill_entry = {
                 "name": name,
                 "description": metadata.get("description", "No description"),
                 "tags": metadata.get("tags", ""),
                 "created": metadata.get("created", "Unknown"),
-                "path": str(skill_file)
-            })
+                "path": str(skill_file),
+            }
+            if metadata.get("source_task"):
+                skill_entry["source_task"] = metadata["source_task"]
+            skills.append(skill_entry)
         
         return sorted(skills, key=lambda x: x["name"])
     
@@ -443,6 +456,11 @@ Tags: auto-generated, agent-skill
             tags_match = re.search(r'Tags:\s*(.+)', docstring)
             if tags_match:
                 metadata['tags'] = tags_match.group(1).strip()
+
+            # Extract source_task (optional, used by benchmarks)
+            source_match = re.search(r'source_task:\s*(.+)', docstring)
+            if source_match:
+                metadata['source_task'] = source_match.group(1).strip()
                 
             # If description wasn't found via key, fallback to finding first non-empty line
             if 'description' not in metadata:

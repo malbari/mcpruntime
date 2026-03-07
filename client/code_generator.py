@@ -44,7 +44,11 @@ class CodeGenerator:
         
         # Initialize configuration if enabled
         if llm_config and llm_config.enabled and HAS_LITELLM:
-            self._model_name = llm_config.model
+            # For Azure, use deployment name so litellm routes to the correct deployment
+            if llm_config.provider == "azure_openai" and getattr(llm_config, "azure_deployment_name", None):
+                self._model_name = llm_config.azure_deployment_name
+            else:
+                self._model_name = llm_config.model
             # For Azure, we usually prefix the model in litellm
             if llm_config.provider == "azure_openai":
                 if not self._model_name.startswith("azure/"):
@@ -223,6 +227,7 @@ print(f"{tool_name}() = {{result}}")"""
         task_description: str,
         imports: List[str],
         skill_listing: Optional[str] = None,
+        mock_tools_description: Optional[str] = None,
     ) -> Optional[str]:
         """Generate code using LLM.
         
@@ -231,6 +236,7 @@ print(f"{tool_name}() = {{result}}")"""
             task_description: Description of the task
             imports: List of import statements
             skill_listing: Formatted listing of available skills
+            mock_tools_description: When set (e.g. for benchmark), use this as the "Available tools" section instead of required_tools
             
         Returns:
             Generated code string or None if LLM generation fails
@@ -240,15 +246,17 @@ print(f"{tool_name}() = {{result}}")"""
         
         try:
             # Build tool descriptions for prompt
-            tool_info = []
-            required_tools = required_tools or {}
-            for server_name, tools in required_tools.items():
-                for tool_name in tools:
-                    key = (server_name, tool_name)
-                    desc = self.tool_descriptions.get(key, f"{server_name}.{tool_name}")
-                    tool_info.append(f"- {server_name}.{tool_name}: {desc}")
-            
-            tool_list = "\n".join(tool_info)
+            if mock_tools_description:
+                tool_list = mock_tools_description
+            else:
+                tool_info = []
+                required_tools = required_tools or {}
+                for server_name, tools in required_tools.items():
+                    for tool_name in tools:
+                        key = (server_name, tool_name)
+                        desc = self.tool_descriptions.get(key, f"{server_name}.{tool_name}")
+                        tool_info.append(f"- {server_name}.{tool_name}: {desc}")
+                tool_list = "\n".join(tool_info) if tool_info else "# No tools (use only what the task describes)"
             imports_str = "\n".join(imports) if imports else "# No imports needed"
             
             prompt = f"""You are a code generator that creates Python code to execute tasks using available tools.
@@ -330,7 +338,9 @@ Generated code:"""
         task_specific_calls: Optional[Dict[str, str]] = None,
         header_comment: Optional[str] = None,
         skill_listing: Optional[str] = None,
-    ) -> str:
+        use_mock_mcp_client: bool = False,
+        mock_tools_description: Optional[str] = None,
+    ) -> tuple:
         """Generate complete Python code for tool usage.
 
         Args:
@@ -339,17 +349,23 @@ Generated code:"""
             task_specific_calls: Optional dict mapping server names to custom code blocks
             header_comment: Optional header comment to include
             skill_listing: Optional formatting listing of generic skills
+            use_mock_mcp_client: If True, emit mock_mcp_client import only (for benchmark PTC tasks).
+            mock_tools_description: When use_mock_mcp_client, pass this as the tool list for the LLM prompt.
 
         Returns:
-            Complete Python code string
+            Tuple of (complete Python code string, used_llm: True if code came from LLM, False if rule-based/fallback)
         """
-        imports = self.generate_imports(required_tools)
-        
+        imports = [] if use_mock_mcp_client else self.generate_imports(required_tools)
+        used_llm = False
         # Try LLM generation if enabled
         if HAS_LITELLM and self.llm_config and self.llm_config.enabled:
-            llm_usage = self._generate_code_with_llm(required_tools, task_description, imports, skill_listing)
+            llm_usage = self._generate_code_with_llm(
+                required_tools, task_description, imports, skill_listing,
+                mock_tools_description=mock_tools_description if use_mock_mcp_client else None,
+            )
             if llm_usage:
                 usage = [llm_usage]
+                used_llm = True
             else:
                 # Fallback to rule-based
                 usage = self.generate_usage_code(required_tools, task_description, task_specific_calls)
@@ -374,7 +390,17 @@ Generated code:"""
 
         # Wrap imports in try/except to show actual errors
         imports_with_error_handling = []
-        if imports:
+        if use_mock_mcp_client:
+            imports_with_error_handling.append("try:")
+            imports_with_error_handling.append("    from mock_mcp_client import call_mcp_tool")
+            imports_with_error_handling.append("except Exception as e:")
+            imports_with_error_handling.append(
+                "    print(f'ERROR: Cannot import mock_mcp_client: {type(e).__name__}: {e}', flush=True)"
+            )
+            imports_with_error_handling.append("    import traceback")
+            imports_with_error_handling.append("    traceback.print_exc()")
+            imports_with_error_handling.append("    call_mcp_tool = None")
+        elif imports:
             # Import client first (servers depend on it)
             imports_with_error_handling.append("try:")
             imports_with_error_handling.append("    from client.mcp_client import call_mcp_tool")
@@ -432,7 +458,7 @@ Generated code:"""
             + "\n"
         )
 
-        return code
+        return code, used_llm
     
     def _generate_file_operations(self, task_description: str) -> str:
         """Generate file operation code if task mentions file operations."""

@@ -306,7 +306,7 @@ class AgentHelper:
         # Generate and execute code
         if verbose:
             print("\n3. Generating code...")
-        code = self.code_generator.generate_complete_code(
+        code, _ = self.code_generator.generate_complete_code(
             required_tools=required_tools,
             task_description=task_description,
             task_specific_calls=task_specific_calls,

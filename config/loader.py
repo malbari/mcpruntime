@@ -59,10 +59,13 @@ def load_config_from_env() -> Dict[str, Any]:
         }
 
     # Load execution config
+    workspace_dir = os.environ.get("WORKSPACE_DIR", "./workspace")
+    # Default skills_dir to workspace/skills so SkillManager and OpenSandbox see the same path
+    skills_dir = os.environ.get("SKILLS_DIR") or os.path.join(workspace_dir, "skills")
     config["execution"] = {
         "sandbox_type": os.environ.get("SANDBOX_TYPE", "opensandbox"),
-        "workspace_dir": os.environ.get("WORKSPACE_DIR", "./workspace"),
-        "skills_dir": os.environ.get("SKILLS_DIR", "./skills"),
+        "workspace_dir": workspace_dir,
+        "skills_dir": skills_dir,
         "allow_network_access": os.environ.get("ALLOW_NETWORK_ACCESS", "false").lower() == "true",
         "state": {
             "enabled": os.environ.get("STATE_ENABLED", "true").lower() == "true",
@@ -100,10 +103,14 @@ def load_config_from_env() -> Dict[str, Any]:
         llm_enabled = True
         provider = "azure_openai"
     
+    # For Azure, model should be the deployment name so litellm and clients use the correct endpoint
+    default_model = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+    model = azure_deployment if (provider == "azure_openai" and azure_deployment) else default_model
+    
     config["llm"] = {
         "enabled": llm_enabled,
         "provider": provider,
-        "model": os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+        "model": model,
         "api_key": os.environ.get("AZURE_OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY") or os.environ.get("LLM_API_KEY"),
         "temperature": float(os.environ.get("LLM_TEMPERATURE", "0.3")),
         "max_tokens": int(os.environ.get("LLM_MAX_TOKENS", "2000")),

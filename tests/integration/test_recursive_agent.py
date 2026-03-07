@@ -74,7 +74,7 @@ for i in range(0, len(CONTEXT_DATA), chunk_size):
     result = ask_llm('Find error', chunk)
     print(f"Result: {result}")
 """
-        agent.code_generator.generate_complete_code = MagicMock(return_value=code)
+        agent.code_generator.generate_complete_code = MagicMock(return_value=(code, False))
 
         result, output, error = agent.execute_recursive_task(
             task_description="Find the error in CONTEXT_DATA",
@@ -94,7 +94,7 @@ val = 5
 res = multiply(val, 10)
 print(f"Result: {res}")
 """
-        agent.code_generator.generate_complete_code = MagicMock(return_value=code)
+        agent.code_generator.generate_complete_code = MagicMock(return_value=(code, False))
 
         result, output, error = agent.execute_recursive_task(
             task_description="Multiply 5 by 10",
@@ -153,7 +153,7 @@ for i in range(0, len(CONTEXT_DATA), chunk_size):
 if not found:
     print("Code not found")
 """
-        agent.code_generator.generate_complete_code = MagicMock(return_value=rlm_code)
+        agent.code_generator.generate_complete_code = MagicMock(return_value=(rlm_code, False))
 
         result, output, error = agent.execute_recursive_task(
             task_description="Find secret code",

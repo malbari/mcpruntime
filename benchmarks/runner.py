@@ -18,6 +18,89 @@ from .validators import Validator
 
 logger = logging.getLogger(__name__)
 
+# Tool API description for PTC tasks that use mock_mcp_client (so the LLM knows what to call).
+MOCK_MCP_TOOLS_DESCRIPTION = """Use this API only: from mock_mcp_client import call_mcp_tool.
+Call as: call_mcp_tool(server_name, method_name, args_dict).
+
+Available tools:
+- calculator: add/subtract/multiply/divide/power/sqrt/calculate/sum_list/avg_list
+- weather: get_weather/get_forecast/get_historical/compare_locations (location, units)
+- filesystem: read_file/write_file/append_file/list_directory/file_exists/get_size/count_lines/read_lines (path)
+- database: query (table, columns, where)/aggregate (table, type, column)/join (table, join_table, on)
+- http: get/post/put/delete/fetch_json (url, data)
+- text: split/join/search/replace/regex_match/regex_findall/to_upper/to_lower/strip/word_count (text)
+- email: send/fetch/search (to, subject, body)
+- calendar: create_event/list_events/delete_event/count_events (title, date)
+- math: fibonacci/factorial/gcd/lcm/is_prime/primes_up_to (n)
+- transform: sort_by/filter/map_field/group_by/sum_field/count_by/unique_values (data, key)
+
+Always use call_mcp_tool with exactly these tool and method names."""
+
+
+def _task_uses_mock_mcp_client(task: "Task") -> bool:
+    """True if this task's setup uses mock_mcp_client (PTC benchmark style)."""
+    for file_def in getattr(task, "setup_files", []) or []:
+        if "mock_mcp_client" in file_def.get("source", ""):
+            return True
+    return False
+
+
+def categorize_failure(error_str: Optional[str], output_str: str = "", validation_details: Optional[Dict] = None) -> Optional[str]:
+    """Categorize the type of failure for analysis.
+    
+    Returns one of:
+    - TIMEOUT: Execution exceeded time limit
+    - IMPORT_ERROR: Missing dependency or import failure
+    - SYNTAX_ERROR: Invalid Python syntax in generated code
+    - RUNTIME_ERROR: Exception during execution
+    - OUTPUT_MISMATCH: Output doesn't match expected format
+    - SANDBOX_VIOLATION: Attempted restricted operation
+    - VALIDATION_FAILED: Generic validation failure
+    - UNKNOWN: Could not determine failure type
+    - None: No failure (success)
+    """
+    if not error_str:
+        # Check validation details
+        if validation_details and validation_details.get("error"):
+            error_str = validation_details.get("error")
+        else:
+            return None
+    
+    error_lower = error_str.lower()
+    
+    # Timeout detection
+    if "timeout" in error_lower or "time limit" in error_lower:
+        return "TIMEOUT"
+    
+    # Import error detection
+    if "import" in error_lower or "modulenotfound" in error_lower or "no module named" in error_lower:
+        return "IMPORT_ERROR"
+    
+    # Syntax error detection
+    if "syntax" in error_lower or "indentation" in error_lower or "parse error" in error_lower:
+        return "SYNTAX_ERROR"
+    
+    # Sandbox violation detection
+    if "sandbox" in error_lower or "permission" in error_lower or "access denied" in error_lower or "not allowed" in error_lower:
+        return "SANDBOX_VIOLATION"
+    
+    # Runtime error detection (general Python exceptions)
+    if any(exc in error_lower for exc in ["exception", "traceback", "error:", "raise ", "assertion"]):
+        return "RUNTIME_ERROR"
+    
+    # Output mismatch detection
+    if validation_details:
+        if "expected" in str(validation_details).lower() or "actual" in str(validation_details).lower():
+            return "OUTPUT_MISMATCH"
+        if validation_details.get("score") is not None and validation_details.get("score") < 1.0:
+            return "VALIDATION_FAILED"
+    
+    # Check output for validation patterns
+    if output_str and validation_details and not validation_details.get("success", True):
+        return "VALIDATION_FAILED"
+    
+    return "UNKNOWN"
+
 
 class BenchmarkRunner:
     """Runs benchmark tasks across configured backends with dual approach support (PTC vs FC)."""
@@ -167,7 +250,7 @@ class BenchmarkRunner:
                 task_id=task.id, task_name=task.name, category=task.category, difficulty=task.difficulty,
                 success=False, score=0.0, execution_time=0.0, output="", error="RLM context fixture not found",
                 validation={}, backend=self.backend, timestamp=time.time(), skipped=False,
-                approach="ptc",
+                approach="ptc", failure_type="IMPORT_ERROR"
             )
 
         fs_helper = self.fs_helper
@@ -195,6 +278,7 @@ class BenchmarkRunner:
         else:
             passed, score, details = False, 0.0, {"error": error_str or str(result)}
 
+        failure_type = categorize_failure(error_str, output_str, details) if not passed else None
         return TaskResult(
             task_id=task.id,
             task_name=task.name,
@@ -214,6 +298,7 @@ class BenchmarkRunner:
             total_time=total_tts,
             llm_generation_time=0.0,
             final_error=error_str if not passed else None,
+            failure_type=failure_type
         )
 
     def setup_workspace(self, task: Task) -> None:
@@ -314,7 +399,7 @@ class BenchmarkRunner:
                         task_id=task.id, task_name=task.name, category=task.category, difficulty=task.difficulty,
                         success=False, score=0.0, execution_time=0.0, output="", error="RLM context fixture not found",
                         validation={}, backend=self.backend, timestamp=time.time(), skipped=False,
-                        approach="ptc",
+                        approach="ptc", failure_type="IMPORT_ERROR"
                     )
                 exec_start = time.time()
                 result, output_str, error_str = executor.execute(
@@ -328,12 +413,14 @@ class BenchmarkRunner:
                     passed, score, details = Validator.validate(task, output_str)
                 else:
                     passed, score, details = False, 0.0, {"error": str(result)}
+                failure_type = categorize_failure(error_str, output_str, details) if not passed else None
                 return TaskResult(
                     task_id=task.id, task_name=task.name, category=task.category, difficulty=task.difficulty,
                     success=passed, score=score, execution_time=exec_time_total, output=output_str, error=error_str,
                     validation=details, backend=self.backend, timestamp=time.time(), skipped=False,
                     approach="ptc",
                     iterations=1, total_time=exec_time_total, llm_generation_time=0.0, final_error=error_str if not passed else None,
+                    failure_type=failure_type
                 )
 
             # Agent Loop: Generation -> Execution -> Validation
@@ -352,6 +439,7 @@ class BenchmarkRunner:
 
             # Context for LLM retries
             previous_errors = []
+            any_llm_used = False
 
             while iteration < max_iterations and not passed:
                 iteration += 1
@@ -365,29 +453,36 @@ class BenchmarkRunner:
                         for i, prev_err in enumerate(previous_errors):
                             prompt += f"\nAttempt {i+1}:\n```\n{prev_err}\n```\n"
                     
+                    use_mock = _task_uses_mock_mcp_client(task)
                     llm_start = time.time()
                     try:
-                        code_to_run = self.code_generator.generate_complete_code(
+                        code_to_run, used_llm = self.code_generator.generate_complete_code(
                             required_tools={},
                             task_description=prompt,
                             task_specific_calls="",
                             header_comment="# MRBS Agent Task",
-                            skill_listing=""
+                            skill_listing="",
+                            use_mock_mcp_client=use_mock,
+                            mock_tools_description=MOCK_MCP_TOOLS_DESCRIPTION if use_mock else None,
                         )
                         if not code_to_run or code_to_run.strip() == "":
                             raise ValueError("LLM returned empty code")
                         # If fallback produced no executable code (only comments), use reference for meaningful result
                         if "# No usage code generated" in code_to_run and task.reference_code:
                             code_to_run = task.reference_code
+                            used_llm = False
                             logger.info("Using reference code (LLM fallback had no executable code)")
                     except Exception as e:
                         logger.error(f"LLM Generation failed: {e}")
                         error_str = f"LLM Generation failed: {e}"
                         break
-                    llm_gen_time_total += (time.time() - llm_start)
+                    any_llm_used = any_llm_used or used_llm
+                    if used_llm:
+                        llm_gen_time_total += (time.time() - llm_start)
                 else:
                     # Fallback to reference code for baseline comparison
                     code_to_run = task.reference_code
+                    used_llm = False
                     if not code_to_run:
                         error_str = "No prompt for LLM generation and no reference code available."
                         break
@@ -438,6 +533,7 @@ class BenchmarkRunner:
             if self.cold_start and hasattr(executor, "close"):
                 pass
                 
+            failure_type = categorize_failure(error_str, output_str, details) if not passed else None
             return TaskResult(
                 task_id=task.id,
                 task_name=task.name,
@@ -458,7 +554,9 @@ class BenchmarkRunner:
                 iterations=iteration,
                 total_time=total_tts,
                 llm_generation_time=llm_gen_time_total,
-                final_error=error_str if not passed else None
+                final_error=error_str if not passed else None,
+                failure_type=failure_type,
+                used_llm=any_llm_used,
             )
             
         except BaseException as e:
@@ -482,7 +580,8 @@ class BenchmarkRunner:
                 iterations=1,
                 total_time=0.0,
                 llm_generation_time=0.0,
-                final_error=str(e)
+                final_error=str(e),
+                failure_type="RUNTIME_ERROR"
             )
 
 
@@ -509,6 +608,7 @@ tool calls and the framework executes them.
                 skipped=True,
                 skip_reason="FC runner not initialized",
                 approach="function_calling",
+                failure_type=None
             )
         
         # Run task via FC runner
@@ -521,6 +621,7 @@ tool calls and the framework executes them.
         else:
             passed, score, details = False, 0.0, {"error": fc_result.get("error", "Unknown error")}
         
+        failure_type = categorize_failure(fc_result.get("error"), output_str, details) if not passed else None
         return TaskResult(
             task_id=task.id,
             task_name=task.name,
@@ -541,6 +642,7 @@ tool calls and the framework executes them.
             tool_calls=fc_result.get("tool_calls", 0),
             retries=fc_result.get("retries", 0),
             cost=fc_result.get("cost", 0.0),
+            failure_type=failure_type
         )
 
     def run_suite(self, tasks: List[Task]) -> List[TaskResult]:

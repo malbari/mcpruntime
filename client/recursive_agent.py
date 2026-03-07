@@ -168,7 +168,7 @@ class RecursiveAgent(AgentHelper):
         task_specific_calls = "" 
         extended_header = ""
 
-        code = self.code_generator.generate_complete_code(
+        code, _ = self.code_generator.generate_complete_code(
             required_tools=required_tools,
             task_description=full_task, # Use full_task here, not original task_description
             task_specific_calls=task_specific_calls,

@@ -1,0 +1,177 @@
+name: PTC-Bench Benchmark
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # Run benchmark daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: 'Backend to test'
+        required: true
+        default: 'subprocess'
+        type: choice
+        options:
+          - subprocess
+          - opensandbox
+      approach:
+        description: 'Approach to test'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - ptc
+          - function_calling
+          - both
+      profile:
+        description: 'Benchmark profile'
+        required: true
+        default: 'quick'
+        type: choice
+        options:
+          - quick
+          - standard
+          - full
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install opensandbox opensandbox-server
+        
+    - name: Configure OpenSandbox (if selected)
+      if: github.event.inputs.backend == 'opensandbox' || (github.event_name != 'workflow_dispatch' && github.event.inputs.backend != 'subprocess')
+      run: |
+        opensandbox-server init-config ~/.sandbox.toml --example docker
+        
+    - name: Run PTC-Bench Benchmark
+      id: benchmark
+      env:
+        # Use GitHub Secrets for API keys (optional)
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+        AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      run: |
+        # Determine parameters
+        BACKEND="${{ github.event.inputs.backend || 'subprocess' }}"
+        APPROACH="${{ github.event.inputs.approach || 'both' }}"
+        PROFILE="${{ github.event.inputs.profile || 'quick' }}"
+        
+        # Map profile to categories
+        case $PROFILE in
+          quick)
+            CATEGORIES="compute,ptc"
+            ;;
+          standard)
+            CATEGORIES="compute,ptc,io,import_heavy"
+            ;;
+          full)
+            CATEGORIES=""
+            ;;
+        esac
+        
+        # Determine LLM provider
+        if [ -n "$OPENAI_API_KEY" ] || [ -n "$AZURE_OPENAI_API_KEY" ]; then
+          LLM_PROVIDER="openai"
+          echo "🔑 Using LLM mode with API key"
+        else
+          LLM_PROVIDER="none"
+          echo "ℹ️ Running in baseline mode (no LLM)"
+        fi
+        
+        # Build command
+        CMD="python -m benchmarks run --backend $BACKEND --approach $APPROACH --llm-provider $LLM_PROVIDER --output results.md"
+        
+        if [ -n "$CATEGORIES" ]; then
+          CMD="$CMD --categories $CATEGORIES"
+        fi
+        
+        echo "🚀 Running: $CMD"
+        eval $CMD
+        
+        # Extract summary metrics from results
+        echo "📊 Benchmark Results:"
+        cat results.md | head -100
+        
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: |
+          results.md
+          results.json
+        retention-days: 30
+        
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Read results file
+          let resultsText = '';
+          try {
+            resultsText = fs.readFileSync('results.md', 'utf8');
+          } catch (e) {
+            resultsText = 'Results file not found';
+          }
+          
+          // Extract key metrics (first 50 lines)
+          const summary = resultsText.split('\n').slice(0, 50).join('\n');
+          
+          // Create comment body
+          const body = `## 📊 PTC-Bench Benchmark Results
+          
+          ${summary}
+          
+          <details>
+          <summary>View full results</summary>
+          
+          \`\`\`
+          ${resultsText.slice(0, 3000)}${resultsText.length > 3000 ? '\n... (truncated)' : ''}
+          \`\`\`
+          
+          </details>
+          
+          ---
+          
+          *Benchmark run on commit ${{ github.sha }}*
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          });
+          
+    - name: Check performance regression
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "⚠️ Performance regression check would run here"
+        echo "Compare results against baseline from main branch"
+        echo "If regression > 10%, fail the check"
+        
+        # TODO: Implement actual regression check
+        # 1. Download baseline results from main branch artifact
+        # 2. Parse JSON results
+        # 3. Compare key metrics (success_rate, avg_time)
+        # 4. Fail if regression exceeds threshold

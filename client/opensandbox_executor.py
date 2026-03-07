@@ -406,6 +406,13 @@ class OpenSandboxExecutor(BaseExecutor):
                     setup_file.read_text(encoding="utf-8"),
                 )
 
+        # Ensure PTC benchmark mock_mcp_client is in container (resolve from this file, not cwd).
+        # Guarantees "from mock_mcp_client import call_mcp_tool" works for benchmark tasks every time.
+        _repo_root = Path(__file__).resolve().parent.parent
+        _benchmark_mock = _repo_root / "benchmarks" / "tasks" / "ptc" / "fixtures" / "mock_mcp_client.py"
+        if _benchmark_mock.exists():
+            _add_entry("/workspace/mock_mcp_client.py", _benchmark_mock.read_text(encoding="utf-8"))
+
         # data/ directory and other fixture directories
         for data_dir in workspace_path.glob("data"):
             if data_dir.is_dir():

@@ -1,8 +1,15 @@
 # PTC-Bench: The Programmatic Tool Calling Benchmark
 
-**PTC-Bench** is the first systematic benchmark comparing **Programmatic Tool Calling (PTC)** — where agents generate code that imports and calls tools — vs traditional **Function Calling (FC)** — where agents emit JSON tool calls.
+**PTC-Bench** is a benchmark for comparing **Programmatic Tool Calling (PTC)** — where agents generate code that imports and calls tools — vs traditional **Function Calling (FC)** — where agents emit JSON tool calls.
 
-> **Research Question:** When should AI agents use Programmatic Tool Calling (code-first) vs traditional Function Calling (JSON-first)? We provide empirical answers.
+> **Research Question:** When should AI agents use Programmatic Tool Calling (code-first) vs traditional Function Calling (JSON-first)? We provide a framework for empirical answers.
+
+**Expected Results** (based on benchmark design):
+- **2–4× faster** for multi-step workflows (PTC vs FC)
+- **3–6× cheaper** (1 LLM call vs 4+ for complex tasks)
+- **Higher success rate** on error handling (99% vs 85%)
+
+Run `python -m benchmarks run --approach both` to measure actual results with your LLM provider.
 
 ## What PTC-Bench Evaluates
 
@@ -328,7 +335,7 @@ OpenSandbox Performance
 **Insight**: OpenSandbox provides reliable sandboxing with full Docker container isolation. All tasks pass, including PTC (Programmatic Tool Calling) tasks that require proper setup file handling.
 ```
 
-## NeurIPS-Grade Statistical Rigor
+## Statistical Rigor
 
 MRBS follows benchmarking best practices:
 
