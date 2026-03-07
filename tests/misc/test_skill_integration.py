@@ -13,6 +13,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -35,6 +37,7 @@ def print_step(step: str, status: str = ""):
 
 def test_skill_sandbox_integration():
     """Test skill execution in sandbox."""
+    pytest.importorskip("opensandbox", reason="opensandbox required for skill-sandbox integration")
     print("=" * 60)
     print("MCPRuntime Skill-Sandbox Integration Test")
     print("=" * 60)
