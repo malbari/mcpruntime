@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-03-07
+
+### Changed
+- **PTC-Bench Simplified**: Consolidated to PTC-only benchmark (60 tasks across easy/medium/hard difficulties).
+- **README Refactored**: Charts & Visualizations consolidated into single section; removed redundant figure displays.
+- **CI/CD**: Updated `actions/upload-artifact` to v4 in workflow.
+- **Tests**: Updated benchmark tests to use PTC category instead of removed compute/io/memory categories.
+
+### Fixed
+- **Azure OpenAI**: Fixed Azure deployment name handling in config loader.
+- **Mock MCP Client**: Fixed path resolution for benchmark mock client in OpenSandbox executor.
+- **Code Generator**: Returns `(code, used_llm)` tuple so reports correctly distinguish LLM-generated vs reference code.
+
 ## [0.1.6] - 2026-03-06
 
 ### Removed
