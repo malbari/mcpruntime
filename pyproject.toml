@@ -11,7 +11,7 @@ requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "MCPRuntime Team"},
-    {name = "Mantix AI Research", url = "https://mantix.cloud"}
+    {name = "Mantix AI Research"}
 ]
 keywords = ["ai-agents", "mcp", "programmatic-tool-calling", "sandbox", "async-execution"]
 classifiers = [
