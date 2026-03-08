@@ -132,7 +132,7 @@ class MCPExampleHelper:
             # Connect if not connected
             if not self._connected:
                 # In real implementation, connect to server
-                # For stdio: subprocess.Popen(["python", "-m", "code_execution_mcp.server"])
+                # For stdio: subprocess.Popen(["python", "-m", "server.mcp_server"])
                 # For sse/http: client.connect(server_url)
                 self._connected = True
 

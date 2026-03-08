@@ -140,9 +140,8 @@ def _is_connection_error(exc: Exception) -> bool:
 class OpenSandboxExecutor(BaseExecutor):
     """Execution backend using Alibaba OpenSandbox (local Docker-based).
 
-    Compatible drop-in replacement for MicrosandboxExecutor.
-    Files are pushed into the sandbox container via the OpenSandbox file API,
-    replicating the volume-mount behaviour of microsandbox.
+    Files are pushed into the sandbox container via the OpenSandbox file API
+    so the runtime has a consistent view of the workspace, servers, and skills.
     """
 
     def __init__(
@@ -238,15 +237,14 @@ class OpenSandboxExecutor(BaseExecutor):
     async def _execute_async(self, code: str) -> tuple[Any, Optional[str]]:
         """Execute code asynchronously inside an OpenSandbox container.
 
-        Mirrors the MicrosandboxExecutor pattern:
         1. Write workspace files (client/, servers/, skills/) into the container
-           via sandbox.files.write_files(), replicating volume-mount behaviour.
+           via sandbox.files.write_files().
         2. Write the task code to /workspace/_execute_task.py.
         3. Run it via sandbox.commands.run("python3 /workspace/_execute_task.py").
         4. Collect stdout + stderr, kill sandbox.
         """
         try:
-            # Resolve paths (same as MicrosandboxExecutor)
+            # Resolve project paths and stage them into the sandbox workspace.
             project_root = self._find_project_root()
             workspace_path = (project_root / self.execution_config.workspace_dir.lstrip("./")).resolve()
             servers_path = (project_root / self.execution_config.servers_dir.lstrip("./")).resolve()
@@ -349,7 +347,7 @@ class OpenSandboxExecutor(BaseExecutor):
     ) -> List[Any]:
         """Build a list of WriteEntry objects for all workspace files.
 
-        Replicates the volume-mount behaviour of MicrosandboxExecutor:
+        Stages project files into the sandbox workspace:
         every file that would be present at /workspace is pushed into
         the OpenSandbox container via the file API.
         """
@@ -419,12 +417,17 @@ class OpenSandboxExecutor(BaseExecutor):
                 for data_file in data_dir.rglob("*"):
                     if data_file.is_file():
                         relative_path = data_file.relative_to(workspace_path)
+                        try:
+                            content = data_file.read_text(encoding="utf-8")
+                        except UnicodeDecodeError:
+                            # Skip binary or non-UTF-8 files (e.g. .pyc, images)
+                            content = "(binary or non-UTF-8 file omitted)"
                         _add_entry(
                             f"/workspace/{relative_path}",
-                            data_file.read_text(encoding="utf-8"),
+                            content,
                         )
 
-        # The task script itself — mirrors microsandbox's _execute_task.py pattern
+        # The task script itself, written into the sandbox workspace.
         task_script = self._build_task_script(code)
         _add_entry("/workspace/_execute_task.py", task_script)
 
@@ -433,8 +436,8 @@ class OpenSandboxExecutor(BaseExecutor):
     def _build_task_script(self, code: str) -> str:
         """Build the wrapper script that sets up sys.path then runs the task code.
 
-        Mirrors the setup code used by MicrosandboxExecutor to ensure imports,
-        path configuration, and (optionally) mcp_client are all available.
+        Ensures imports, path configuration, and (optionally) `mcp_client`
+        are available inside the sandbox.
         Setup debug output goes to stderr to avoid polluting task stdout.
         """
         setup = "\n".join([

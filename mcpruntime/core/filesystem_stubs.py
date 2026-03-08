@@ -20,7 +20,7 @@ def generate_tool_stub(
     tool_func: Callable,
     server_name: str,
     tool_name: Optional[str] = None,
-    import_path: str = "code_execution_mcp.client.mcp_client",
+    import_path: str = "client.mcp_client",
     client_var: str = "mcp_client",
 ) -> str:
     """Generate a filesystem stub file for a tool function.
@@ -171,7 +171,7 @@ def create_filesystem_stubs(
     tools: List[Callable],
     server_name: str,
     servers_dir: Path,
-    import_path: str = "code_execution_mcp.client.mcp_client",
+    import_path: str = "client.mcp_client",
 ) -> None:
     """Create filesystem stubs for a list of tools.
     
@@ -224,7 +224,7 @@ def create_filesystem_stubs(
 
 def create_context_tools_stubs(
     servers_dir: Path,
-    import_path: str = "code_execution_mcp.client.mcp_client",
+    import_path: str = "client.mcp_client",
 ) -> None:
     """Create filesystem stubs for context tools.
     
@@ -260,7 +260,7 @@ def create_external_tools_stubs(
     server_name: str,
     tool_names: List[str],
     servers_dir: Path,
-    import_path: str = "code_execution_mcp.client.mcp_client",
+    import_path: str = "client.mcp_client",
 ) -> None:
     """Create filesystem stubs for external tools.
     

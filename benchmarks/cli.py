@@ -88,6 +88,36 @@ def main():
                            help="Categories to run (default: skill_evolution)")
     evo_parser.add_argument("--output", type=str, help="Save results to file")
     
+    # SKILLSBENCH command
+    sb_parser = subparsers.add_parser("skillsbench", help="Run SkillsBench 4-condition evaluation")
+    sb_parser.add_argument("--backend", type=str, default="opensandbox",
+                         choices=["opensandbox", "subprocess"],
+                         help="Backend to run on")
+    sb_parser.add_argument("--condition", type=str, default="all",
+                         choices=["no_skills", "curated", "self_generated", "runtime_evolved", "all"],
+                         help="Skill condition to test. 'all' runs all 4 conditions for comparison.")
+    sb_parser.add_argument("--categories", type=str,
+                         help="Comma-separated task categories (default: all)")
+    sb_parser.add_argument("--difficulties", type=str,
+                         help="Comma-separated difficulties (easy,medium,hard)")
+    sb_parser.add_argument("--limit", type=int, default=30,
+                         help="Maximum tasks to run (default: 30 for cost efficiency)")
+    sb_parser.add_argument("--runs", type=int, default=5,
+                         help="Runs per task per condition (default: 5 for statistical power)")
+    sb_parser.add_argument("--output", type=str, required=True,
+                         help="Output directory for results and report")
+    sb_parser.add_argument("--llm-provider", type=str, default="openai",
+                         choices=["openai", "anthropic", "google", "azure_openai"],
+                         help="LLM Provider for agent code generation")
+    sb_parser.add_argument("--llm-model", type=str, default="gpt-4o",
+                         help="LLM Model name (default: gpt-4o)")
+    sb_parser.add_argument("--local-skillsbench", type=str,
+                         help="Path to local SkillsBench repo clone (optional)")
+    sb_parser.add_argument("--fixed-skill-order", action="store_true", default=True,
+                         help="Use fixed skill order for runtime-evolved (recommended for NeurIPS)")
+    sb_parser.add_argument("--no-fixed-skill-order", action="store_true",
+                         help="Disable fixed skill order (skills accumulate naturally)")
+    
     # DEBUG command
     dbg_parser = subparsers.add_parser("debug", help="Debug a single task")
     dbg_parser.add_argument("--task", type=str, required=True, help="Task ID (e.g. compute_001)")
@@ -97,6 +127,186 @@ def main():
     
     if args.command == "debug":
         debug_task(args.task, args.backend)
+        return
+    
+    if args.command == "skillsbench":
+        # Enable benchmark mode to bypass security validation (we run in subprocess sandbox)
+        os.environ["MCP_BENCHMARK_MODE"] = "1"
+        # Suppress litellm "Provider List" and other verbose messages during benchmarks
+        os.environ.setdefault("LITELLM_LOG", "ERROR")
+        
+        # Import SkillsBench modules
+        from .skillsbench import SkillsBenchRunner, SkillCondition, SkillsBenchLoader
+        from .skillsbench.metrics import SkillMetricsAnalyzer
+        from pathlib import Path
+        import json
+        
+        print("="*70)
+        print("SkillsBench 4-Condition Evaluation")
+        print("="*70)
+        print("\nResearch Question:")
+        print("Does execution-grounded skill evolution outperform speculation-based")
+        print("self-generation on diverse real-world tasks?\n")
+        
+        # Setup output directory
+        output_dir = Path(args.output)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Configure LLM
+        llm_config = None
+        if args.llm_provider != "none":
+            azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+            azure_deployment = (
+                os.environ.get("AZURE_OPENAI_CHAT_DEPLOYMENT")
+                or os.environ.get("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME")
+                or os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME")
+            )
+            provider = args.llm_provider
+            model = args.llm_model
+            if azure_endpoint and provider == "openai" and os.environ.get("AZURE_OPENAI_API_KEY"):
+                provider = "azure_openai"
+                model = azure_deployment or model
+            if provider == "azure_openai" and azure_deployment:
+                model = azure_deployment
+            llm_config = LLMConfig(
+                provider=provider,
+                model=model,
+                enabled=True,
+                api_key=os.environ.get("AZURE_OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+                azure_endpoint=azure_endpoint,
+                azure_deployment_name=azure_deployment or (model if provider == "azure_openai" else None),
+                azure_api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
+            )
+        
+        # Load SkillsBench tasks
+        print("Loading SkillsBench tasks...")
+        loader = SkillsBenchLoader(
+            local_path=args.local_skillsbench,
+            use_github_api=True,
+        )
+        
+        categories = args.categories.split(",") if args.categories else None
+        difficulties = args.difficulties.split(",") if args.difficulties else None
+        
+        tasks = loader.load_tasks(
+            categories=categories,
+            difficulties=difficulties,
+            limit=args.limit,
+        )
+        
+        if not tasks:
+            print("❌ No tasks loaded. Check SkillsBench access or use --local-skillsbench")
+            sys.exit(1)
+        
+        print(f"✅ Loaded {len(tasks)} tasks")
+        print(f"   Categories: {categories or 'all'}")
+        print(f"   Difficulties: {difficulties or 'all'}")
+        print(f"   Output directory: {output_dir}")
+        print(f"   Runs per task: {args.runs}")
+        print()
+        
+        # NEURIPS: Fixed skill order control
+        use_fixed_skill_order = args.fixed_skill_order and not args.no_fixed_skill_order
+        if use_fixed_skill_order and args.condition == "all" and args.runs > 1:
+            print("✅ Using FIXED skill order for runtime-evolved condition")
+            print("   (All runs will see the same skill library per task position)")
+        
+        # Determine which conditions to run
+        if args.condition == "all":
+            conditions = [
+                SkillCondition.NO_SKILLS,
+                SkillCondition.CURATED_SKILLS,
+                SkillCondition.SELF_GENERATED_SKILLS,
+                SkillCondition.RUNTIME_EVOLVED_SKILLS,
+            ]
+        else:
+            condition_map = {
+                "no_skills": SkillCondition.NO_SKILLS,
+                "curated": SkillCondition.CURATED_SKILLS,
+                "self_generated": SkillCondition.SELF_GENERATED_SKILLS,
+                "runtime_evolved": SkillCondition.RUNTIME_EVOLVED_SKILLS,
+            }
+            conditions = [condition_map[args.condition]]
+        
+        # Run evaluation
+        all_results = {}
+        
+        # NEURIPS: For condition=all with fixed order, use compare_all_conditions
+        if args.condition == "all" and use_fixed_skill_order and args.runs > 1:
+            print(f"\n{'='*70}")
+            print("Running all 4 conditions with controlled comparison")
+            print(f"{'='*70}")
+            
+            runner = SkillsBenchRunner(
+                condition=SkillCondition.NO_SKILLS,  # Will be overridden
+                backend=args.backend,
+                n_runs=args.runs,
+                llm_config=llm_config,
+            )
+            all_results = runner.compare_all_conditions(
+                tasks,
+                use_fixed_skill_order=True,
+            )
+            
+            # Save results
+            for name, result in all_results.items():
+                result_file = output_dir / f"{name}_results.json"
+                with open(result_file, 'w') as f:
+                    json.dump(result.metrics.to_dict(), f, indent=2)
+                print(f"💾 {name} results saved")
+        else:
+            # Standard per-condition execution
+            for condition in conditions:
+                print(f"\n{'='*70}")
+                print(f"Running: {condition.name}")
+                print(f"{'='*70}")
+                
+                runner = SkillsBenchRunner(
+                    condition=condition,
+                    backend=args.backend,
+                    n_runs=args.runs,
+                    llm_config=llm_config,
+                )
+                
+                # Pass loader as curated_provider for curated skills condition
+                curated_provider = loader if condition == SkillCondition.CURATED_SKILLS else None
+                result = runner.run_suite_with_condition(tasks, curated_provider=curated_provider)
+                all_results[condition.name.lower()] = result
+                
+                # Save intermediate results
+                result_file = output_dir / f"{condition.name.lower()}_results.json"
+                with open(result_file, 'w') as f:
+                    json.dump(result.metrics.to_dict(), f, indent=2)
+                print(f"\n💾 Results saved to {result_file}")
+        
+        # Generate comparison report if all conditions were run
+        if len(conditions) == 4:
+            print(f"\n{'='*70}")
+            print("Generating comparison report...")
+            print(f"{'='*70}")
+            
+            analyzer = SkillMetricsAnalyzer()
+            report = analyzer.generate_comparison_report(
+                no_skills_metrics=all_results["no_skills"].metrics,
+                curated_metrics=all_results["curated_skills"].metrics,
+                self_gen_metrics=all_results["self_generated_skills"].metrics,
+                runtime_evolved_metrics=all_results["runtime_evolved_skills"].metrics,
+            )
+            
+            report_file = output_dir / "comparison_report.md"
+            with open(report_file, 'w') as f:
+                f.write(report)
+            print(f"✅ Comparison report saved to {report_file}")
+            print("\n" + "="*70)
+            print("Summary:")
+            print("="*70)
+            for name, result in all_results.items():
+                m = result.metrics
+                print(f"{name:20s}: Pass rate = {m.pass_rate*100:5.1f}%, "
+                      f"Time = {m.avg_execution_time:.2f}s")
+        
+        print(f"\n✅ SkillsBench evaluation complete!")
+        print(f"   Results directory: {output_dir}")
         return
     
     if args.command == "skill-evolution":

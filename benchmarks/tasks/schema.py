@@ -85,7 +85,7 @@ class Task:
             difficulty=data.get("difficulty", "medium"),
             tags=data.get("tags", []),
             timeout=data.get("timeout", 10),
-            supported_backends=data.get("supported_backends", ["opensandbox", "microsandbox", "monty"]),
+            supported_backends=data.get("supported_backends", ["opensandbox", "subprocess"]),
             min_score=data.get("min_score", 1.0),
             expected_output=data.get("expected_output", None),
             custom_validator=data.get("custom_validator", None),
@@ -138,6 +138,9 @@ class TaskResult:
     
     # Whether this task used LLM-generated code (True) or reference/rule-based (False) — for meaningful report labeling
     used_llm: bool = False
+    
+    # Code that was executed (for skill extraction in SkillsBench runtime-evolved condition)
+    generated_code: Optional[str] = None
 
 
 @dataclass

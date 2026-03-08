@@ -337,16 +337,21 @@ class BenchmarkRunner:
                 
             safe_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # Use provided content or copy from source fixture
+            # Use provided content or copy from source fixture / absolute path
             if "content" in file_def:
                 safe_path.write_text(file_def["content"], encoding="utf-8")
             elif "source" in file_def:
-                fixture_path = Path(__file__).parent / "tasks" / task.category / "fixtures" / file_def["source"]
-                if fixture_path.exists():
-                    import shutil
-                    shutil.copy2(fixture_path, safe_path)
+                import shutil
+                source_raw = file_def["source"]
+                source_path = Path(source_raw)
+                if source_path.is_absolute() and source_path.exists():
+                    shutil.copy2(source_path, safe_path)
                 else:
-                    logger.error(f"Fixture not found: {fixture_path}")
+                    fixture_path = Path(__file__).parent / "tasks" / task.category / "fixtures" / source_raw
+                    if fixture_path.exists():
+                        shutil.copy2(fixture_path, safe_path)
+                    else:
+                        logger.error(f"Fixture not found: {fixture_path}")
 
     def run_task(self, task: Task) -> TaskResult:
         """Execute a single task with full agent loop: LLM generates code, runtime executes, validator checks.
@@ -436,6 +441,7 @@ class BenchmarkRunner:
             details = {}
             output_str = ""
             error_str = None
+            code_to_run = None  # Last code executed (for skill extraction / TaskResult.generated_code)
 
             # Context for LLM retries
             previous_errors = []
@@ -557,6 +563,7 @@ class BenchmarkRunner:
                 final_error=error_str if not passed else None,
                 failure_type=failure_type,
                 used_llm=any_llm_used,
+                generated_code=code_to_run,
             )
             
         except BaseException as e:

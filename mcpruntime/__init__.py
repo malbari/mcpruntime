@@ -1,12 +1,26 @@
-"""Code Execution MCP - A framework for code execution with MCP (Model Context Protocol).
+"""MCPRuntime - A minimal execution kernel for agents that earn their autonomy.
 
-This package provides a simple, high-level API for executing tasks using MCP servers
-through Python code generation and sandboxed execution.
+This package provides a structured framework for sandboxed code execution
+with pluggable context, accumulating skills, and policy-aware execution.
+
+Architecture:
+    - core/: Execution dispatch, sandbox lifecycle, MCP protocol (always runs)
+    - context/: Pluggable context layer for domain-specific knowledge
+    - skills/: Self-growing tool library that accumulates over time
+    - extensions/: Optional capabilities like RLM for advanced use cases
 
 Quick Start:
     >>> from mcpruntime import create_agent, execute_task
     >>> agent = create_agent()
     >>> result, output, error = execute_task("Calculate 5 + 3")
+
+Advanced - Policy-aware execution with context:
+    >>> from mcpruntime.core import Executor, ExecutionPolicy
+    >>> from mcpruntime.context import FileContextProvider
+    >>> provider = FileContextProvider("./context")
+    >>> context = provider.get_context("my task")
+    >>> executor = Executor(confidence_threshold=0.7)
+    >>> outcome = executor.run("my task", context)
 """
 
 import logging
@@ -24,7 +38,6 @@ from client import (
     SkillManager,  # Skill management
     # Execution
     OpenSandboxExecutor,
-    SandboxPool,
     CodeExecutor,
     ExecutionResult,
     ValidationResult,
@@ -62,9 +75,40 @@ from config import (
 )
 from server import MCPServer, create_server, run_server
 
+# New architectural layers
+from mcpruntime.core import (
+    Executor,
+    ExecutionPolicy,
+    ExecutionMode,
+    OpenSandboxClient,
+    MCPRegistry,
+    MCPProtocolHandler,
+    MCPTool,
+)
+from mcpruntime.context import (
+    ContextProvider,
+    QueryableContextProvider,
+    ContextResult,
+    ExecutionOutcome,
+    FileContextProvider,
+    InMemoryContextProvider,
+)
+from mcpruntime.skills import (
+    SkillRegistry,
+    Skill,
+    SkillExtractor,
+    ExtractionResult,
+    CompositionMiner,
+    CompositionPattern,
+    ValidationResult,
+    EcosystemTracker,
+    GrowthSnapshot,
+    InflectionPoint,
+    EcosystemHealth,
+)
+
 # Import for factory function (use internal imports)
 from client.agent_helper import AgentHelper as _AgentHelper
-from client.recursive_agent import RecursiveAgent
 from client.filesystem_helpers import FilesystemHelper as _FilesystemHelper
 from client.opensandbox_executor import OpenSandboxExecutor as _OpenSandboxExecutor
 from config.loader import load_config as _load_config
@@ -76,7 +120,34 @@ __all__ = [
     # Main API
     "create_agent",
     "execute_task",
-    # Components (organized by architectural layer)
+    # Core Layer (execution, sandbox, mcp)
+    "Executor",
+    "ExecutionPolicy",
+    "ExecutionMode",
+    "OpenSandboxClient",
+    "MCPRegistry",
+    "MCPProtocolHandler",
+    "MCPTool",
+    # Context Layer (knowledge providers)
+    "ContextProvider",
+    "QueryableContextProvider",
+    "ContextResult",
+    "ExecutionOutcome",
+    "FileContextProvider",
+    "InMemoryContextProvider",
+    # Skills Layer (self-growing tool library with emergent composition)
+    "SkillRegistry",
+    "Skill",
+    "SkillExtractor",
+    "ExtractionResult",
+    "CompositionMiner",
+    "CompositionPattern",
+    "ValidationResult",
+    "EcosystemTracker",
+    "GrowthSnapshot",
+    "InflectionPoint",
+    "EcosystemHealth",
+    # Legacy Components (organized by architectural layer)
     # Orchestration
     "AgentHelper",
     "RecursiveAgent",
@@ -84,7 +155,6 @@ __all__ = [
     "SkillManager",  # Skill management
     # Execution
     "OpenSandboxExecutor",
-    "SandboxPool",
     "CodeExecutor",
     "ExecutionResult",
     "ValidationResult",

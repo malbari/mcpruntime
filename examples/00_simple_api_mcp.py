@@ -7,7 +7,7 @@ as an MCP server instead of using it directly.
 
 Prerequisites:
     1. MCP server must be running:
-       python -m code_execution_mcp.server
+       python -m server.mcp_server
        
     2. Or set environment variables:
        export MCP_MODE=true
@@ -15,7 +15,7 @@ Prerequisites:
 
 Usage:
     # Terminal 1: Start server
-    python -m code_execution_mcp.server
+    python -m server.mcp_server
     
     # Terminal 2: Run this example
     python examples/00_simple_api_mcp.py

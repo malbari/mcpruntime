@@ -1,10 +1,11 @@
-"""Code Execution MCP - Core client components.
+"""MCPRuntime client components.
 
-This package provides the main framework for code execution with MCP (Model Context Protocol).
+This package provides the main runtime-facing client components and
+compatibility exports used by MCPRuntime.
 
 Architecture:
     - Orchestration: AgentHelper (high-level coordination)
-    - Execution: OpenSandboxExecutor, SandboxPool (code execution)
+    - Execution: OpenSandboxExecutor (code execution)
     - Discovery: FilesystemHelper, ToolSelector (tool discovery/selection)
     - Generation: CodeGenerator (code generation)
     - Validation: GuardrailValidator (safety checks)
@@ -19,7 +20,6 @@ from client.skill_manager import SkillManager # Skill management
 
 # Execution Layer
 from client.opensandbox_executor import OpenSandboxExecutor
-from client.sandbox_pool import SandboxPool
 from client.base import CodeExecutor, ExecutionResult, ValidationResult
 
 # Discovery Layer
@@ -57,7 +57,6 @@ __all__ = [
     "SkillManager",  # Skill management
     # Execution
     "OpenSandboxExecutor",
-    "SandboxPool",
     "CodeExecutor",
     "ExecutionResult",
     "ValidationResult",

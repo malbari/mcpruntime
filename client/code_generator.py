@@ -10,10 +10,20 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Try to import litellm
+# Try to import litellm (set LITELLM_LOG before import to suppress log spam)
+if "LITELLM_LOG" not in os.environ:
+    os.environ["LITELLM_LOG"] = "ERROR"
 try:
     import litellm
-    litellm.drop_params = True # Handle provider-specific param strictness (e.g. gpt-5 temperature)
+    litellm.drop_params = True  # Handle provider-specific param strictness (e.g. gpt-5 temperature)
+    # Suppress "Provider List: https://docs.litellm.ai/docs/providers" print() when provider is unmapped
+    if hasattr(litellm, "suppress_debug_info"):
+        litellm.suppress_debug_info = True
+    if hasattr(litellm, "set_verbose"):
+        if callable(litellm.set_verbose):
+            litellm.set_verbose(False)
+        else:
+            litellm.set_verbose = False
     HAS_LITELLM = True
 except ImportError:
     HAS_LITELLM = False
@@ -59,6 +69,59 @@ class CodeGenerator:
             self._api_base = llm_config.azure_endpoint or os.environ.get("AZURE_OPENAI_ENDPOINT")
             self._api_version = llm_config.azure_api_version or os.environ.get("AZURE_OPENAI_API_VERSION")
     
+
+    def generate_from_prompt(
+        self,
+        system_content: str,
+        user_content: str,
+        max_tokens: int = 2048,
+    ) -> Optional[str]:
+        """Generate text from a system + user message (e.g. for skill generation).
+
+        Returns:
+            Generated text or None if LLM is unavailable or call fails.
+        """
+        if not HAS_LITELLM or not self.llm_config:
+            return None
+        model = getattr(self, "_model_name", None)
+        if not model:
+            return None
+        try:
+            completion_params = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": user_content},
+                ],
+                "api_key": getattr(self, "_api_key", None),
+                "api_base": getattr(self, "_api_base", None),
+                "api_version": getattr(self, "_api_version", None),
+                "max_tokens": max_tokens,
+            }
+            if model and "gpt-5.2-chat" in model:
+                completion_params["temperature"] = 1.0
+            else:
+                completion_params["temperature"] = getattr(
+                    self.llm_config, "temperature", 0.2
+                )
+            token_attr = getattr(self.llm_config, "max_completion_tokens", None) or getattr(self.llm_config, "max_tokens", 4096)
+            if model and "codex" in model.lower():
+                completion_params["max_tokens"] = token_attr
+            elif (model and ("gpt-5.2-chat" in model or "gpt-4o" in model)) or (
+                getattr(self.llm_config, "provider", None) == "azure_openai"
+                and model
+                and "chat" in model.lower()
+            ):
+                completion_params["max_completion_tokens"] = min(max_tokens, token_attr)
+            else:
+                completion_params["max_tokens"] = min(max_tokens, token_attr)
+            import litellm
+            response = litellm.completion(**completion_params)
+            text = (response.choices[0].message.content or "").strip()
+            return text if text else None
+        except Exception as e:
+            logger.warning(f"generate_from_prompt failed: {e}")
+            return None
 
     def generate_imports(self, required_tools: Dict[str, List[str]]) -> List[str]:
         """Generate import statements for required tools.

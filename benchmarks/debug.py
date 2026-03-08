@@ -9,7 +9,7 @@ from .metrics import compute_metrics
 from .reports import ReportGenerator
 from .tasks.schema import Task
 
-def debug_task(task_id: str, backend: str = "monty"):
+def debug_task(task_id: str, backend: str = "opensandbox"):
     """Run a single task with verbose output."""
     
     print(f"==========================================")

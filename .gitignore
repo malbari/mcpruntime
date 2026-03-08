@@ -69,6 +69,7 @@ workspace/*
 private/
 trials/
 workspace_monty_io/
+.tool_cache.json
 
 # OS
 .DS_Store

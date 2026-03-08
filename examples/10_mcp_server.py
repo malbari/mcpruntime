@@ -31,7 +31,7 @@ def example_basic_server():
     print("  - get_server_tools: List tools in a specific server")
     print()
     print("To run the server:")
-    print("  python -m code_execution_mcp.server")
+    print("  python -m server.mcp_server")
     print()
     print("Or programmatically:")
     print("  from mcpruntime import run_server")
@@ -112,6 +112,6 @@ if __name__ == "__main__":
     
     print("\n" + "=" * 60)
     print("Note: To actually start the server, run:")
-    print("  python -m code_execution_mcp.server")
+    print("  python -m server.mcp_server")
     print("=" * 60)
 

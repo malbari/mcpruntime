@@ -1,7 +1,6 @@
 version: "3.9"
 
 services:
-  # Option A: OpenSandbox (Default)
   mcpruntime:
     build:
       context: .
@@ -17,53 +16,6 @@ services:
     environment:
       - SANDBOX_TYPE=opensandbox
       - OPENSANDBOX_DOMAIN=host.docker.internal:8080
-
-  # Option C: Microsandbox (Profile)
-  microsandbox:
-    build:
-      context: ./microsandbox
-    privileged: true # required for MicroVM
-    ports:
-      - "7777:7777"
-    volumes:
-      - sandbox_data:/var/sandbox
-    profiles:
-      - microsandbox
-
-  mcpruntime-microsandbox:
-    build:
-      context: .
-      target: microsandbox
-    env_file: .env
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./skills:/app/skills
-      - ./workspace:/app/workspace
-    depends_on:
-      - microsandbox
-    environment:
-      - SANDBOX_TYPE=microsandbox
-      - SANDBOX_HOST=microsandbox
-      - SANDBOX_PORT=7777
-    profiles:
-      - microsandbox
-
-  # Option B: Monty (Profile)
-  mcpruntime-monty:
-    build:
-      context: .
-      target: python-only
-    env_file: .env
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./skills:/app/skills
-      - ./workspace:/app/workspace
-    environment:
-      - SANDBOX_TYPE=monty
-    profiles:
-      - monty
 
 volumes:
   sandbox_data:

@@ -6,7 +6,7 @@ to the framework as an MCP server, rather than using it directly.
 
 Prerequisites:
     1. Start the MCP server in a separate terminal:
-       python -m code_execution_mcp.server
+       python -m server.mcp_server
        
     2. Or set environment variables:
        export MCP_MODE=true
@@ -45,12 +45,12 @@ class MCPFrameworkClient:
 
         Args:
             server_command: Command to start server (for stdio transport)
-                           Default: ["python", "-m", "code_execution_mcp.server", "stdio"]
+                           Default: ["python", "-m", "server.mcp_server", "stdio"]
         """
         self.server_command = server_command or [
             "python",
             "-m",
-            "code_execution_mcp.server",
+            "server.mcp_server",
             "stdio",
         ]
         self.server_process: Optional[subprocess.Popen] = None
@@ -154,7 +154,7 @@ def example_direct_vs_mcp():
 
     print("MCP CLIENT MODE (This Example):")
     print("  - Examples connect to framework as MCP server")
-    print("  - Server runs separately: python -m code_execution_mcp.server")
+    print("  - Server runs separately: python -m server.mcp_server")
     print("  - Client calls tools via MCP protocol")
     print("  - Pros: Server can run remotely, multiple clients, standardized protocol")
     print("  - Cons: More complex setup, requires server running")
@@ -169,7 +169,7 @@ def example_mcp_client_usage():
     print()
 
     print("Step 1: Start the MCP server (in separate terminal):")
-    print("  python -m code_execution_mcp.server")
+    print("  python -m server.mcp_server")
     print()
 
     print("Step 2: Connect from client:")
@@ -210,7 +210,7 @@ def example_environment_switching():
 
     print("Run examples in MCP client mode:")
     print("  # Terminal 1: Start server")
-    print("  python -m code_execution_mcp.server")
+    print("  python -m server.mcp_server")
     print()
     print("  # Terminal 2: Run example with MCP mode")
     print("  export MCP_MODE=true")
@@ -253,7 +253,7 @@ def example_hybrid_example():
 
     print("To run in MCP client mode:")
     print("  # Start server first")
-    print("  python -m code_execution_mcp.server &")
+    print("  python -m server.mcp_server &")
     print("  # Then run example")
     print("  MCP_MODE=true python example.py")
     print()
@@ -288,7 +288,7 @@ if __name__ == "__main__":
     print("   - Set MCP_MODE=true environment variable")
     print()
     print("To enable MCP mode for examples:")
-    print("  1. Start server: python -m code_execution_mcp.server")
+    print("  1. Start server: python -m server.mcp_server")
     print("  2. Set env var: export MCP_MODE=true")
     print("  3. Run example: python examples/00_simple_api.py")
     print()

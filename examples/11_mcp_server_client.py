@@ -192,13 +192,13 @@ def example_running_server():
     print()
     
     print("Method 2: Python module")
-    print("  python -m code_execution_mcp.server")
+    print("  python -m server.mcp_server")
     print()
     
     print("Method 3: With specific transport")
-    print("  python -m code_execution_mcp.server stdio")
-    print("  python -m code_execution_mcp.server sse")
-    print("  python -m code_execution_mcp.server http")
+    print("  python -m server.mcp_server stdio")
+    print("  python -m server.mcp_server sse")
+    print("  python -m server.mcp_server http")
     print()
     
     print("Method 4: Programmatically")

@@ -432,7 +432,7 @@ python -m benchmarks compare --backends opensandbox,subprocess --runs 3
 |----------------|-----|---------|
 | Fastest benchmark runs | OpenSandbox | ~3s/task, 100% compatibility, full PTC support |
 | Full agent orchestration | OpenSandbox | Volume mounts, networking, multi-step |
-| Pure compute speed tests | Monty | In-process, no container overhead |
+| Pure compute speed tests | Subprocess | Lowest overhead for trusted local development |
 | No isolation concerns | Subprocess | Fastest, but unsafe |
 
 ### 3. Task Difficulty Calibration

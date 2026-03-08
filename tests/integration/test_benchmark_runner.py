@@ -14,13 +14,13 @@ def test_runner_load_tasks():
 
 def test_runner_execution_flow():
     pytest.importorskip("opensandbox", reason="opensandbox required for execution flow test")
-    runner = BenchmarkRunner(backend="opensandbox", n_runs=2, cold_start=False)
+    runner = BenchmarkRunner(backend="opensandbox", n_runs=2, cold_start=False, approach="ptc")
 
     tasks = runner.load_tasks(categories=["ptc"])
     task = next((t for t in tasks if t.id == "PTC01"), None)  # Calculator: Basic addition
     assert task is not None
 
-    # With n_runs=2, run_suite returns 1 result per run (so 2 total for 1 task)
+    # With approach="ptc" and n_runs=2, run_suite returns 1 result per run (so 2 total for 1 task)
     results = runner.run_suite([task])
 
     assert len(results) == 2  # 1 task × 2 runs

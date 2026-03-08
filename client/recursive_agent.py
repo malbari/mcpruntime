@@ -176,64 +176,6 @@ class RecursiveAgent(AgentHelper):
             skill_listing=skill_listing,
         )
         
-        # Post-process code for Monty (inline tools, remove incompatible imports)
-        # This is a hack because Monty doesn't support file-based imports well yet
-        if hasattr(self.executor, "execution_config") and self.executor.execution_config.sandbox_type == "monty":
-             # 1. Inline required tools
-            tool_code_prelude = ""
-            lines = code.splitlines()
-            new_lines = []
-            
-            for line in lines:
-                # Remove traceback and mcp_client imports (not available/needed in Monty)
-                if "import traceback" in line or "traceback.print_exc" in line:
-                    continue
-                if "client.mcp_client" in line:
-                    indentation = line[:len(line) - len(line.lstrip())]
-                    new_lines.append(f"{indentation}pass # {line.strip()} # INLINED")
-                    continue
-                
-                # Check for tool or skill imports to inline
-                # Pattern: from servers.{server}.{tool} import {func}
-                # or from skills.{skill} import {func}
-                if line.strip().startswith("from servers.") or line.strip().startswith("from skills."):
-                    # Comment out the import and add pass to keep block valid, preserving indentation
-                    indentation = line[:len(line) - len(line.lstrip())]
-                    new_lines.append(f"{indentation}pass # {line.strip()} # INLINED")
-                    
-                    try:
-                        # Extract module and name
-                        parts = line.strip().split()
-                        # parts[1] is 'servers.calculator.multiply' or 'skills.fetch_weather'
-                        module_path = parts[1].split(".")
-                        
-                        if module_path[0] == "servers" and len(module_path) >= 2:
-                            server_name = module_path[1]
-                            tool_name = parts[3] # import {tool_name}
-                            
-                            # Read tool source
-                            # Tool file is usually servers/{server}/{tool}.py
-                            # But sometimes it's mapped differently. 
-                            tool_source = self.fs_helper.read_tool_file(server_name, tool_name)
-                            if tool_source:
-                                tool_code_prelude += f"\n# Tool: {tool_name}\n{tool_source}\n"
-                        
-                        elif module_path[0] == "skills" and len(module_path) >= 2:
-                            skill_name = module_path[1]
-                            
-                            # Read skill source from workspace/skills
-                            skill_file = Path(self.execution_config.workspace_dir) / "skills" / f"{skill_name}.py"
-                            if skill_file.exists():
-                                skill_source = skill_file.read_text(encoding="utf-8")
-                                tool_code_prelude += f"\n# Skill: {skill_name}\n{skill_source}\n"
-                                
-                    except Exception as e:
-                        logger.warning(f"Failed to inline module from line '{line}': {e}")
-                else:
-                    new_lines.append(line)
-            
-            code = tool_code_prelude + "\n".join(new_lines)
-        
         # Execute with context
         # We need to access self.context_data and ask_llm if not passed explicitly,
         # but better to pass them via the specialized execute_recursive_task method

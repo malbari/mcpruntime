@@ -386,12 +386,12 @@ class AgentHelper:
                 error_str = str(error) if not isinstance(error, str) else error
                 for line in error_str.split("\n"):
                     print(f"   {line}")
-                if "Cannot connect" in error or "Connect call failed" in error:
-                    print("\n   Note: Microsandbox server is not running.")
-                    print("   Start it with: msb server start --dev")
-                elif "Internal server error" in error or "5002" in error:
-                    print("\n   Note: Microsandbox server error.")
-                    print("   Check platform compatibility and server logs.")
+                if "OpenSandbox server not reachable" in error_str or "Cannot connect" in error_str or "Connect call failed" in error_str:
+                    print("\n   Note: OpenSandbox server is not running or not reachable.")
+                    print("   Start it with: opensandbox-server start")
+                elif "Internal server error" in error_str or "5002" in error_str:
+                    print("\n   Note: OpenSandbox server returned an internal error.")
+                    print("   Check Docker and OpenSandbox server logs.")
 
             print("   " + "=" * 56)
 

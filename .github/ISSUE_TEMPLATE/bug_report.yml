@@ -21,8 +21,8 @@ body:
       label: Execution Backend
       description: Which backend were you running?
       options:
-        - Microsandbox
-        - Monty
+        - OpenSandbox
+        - Subprocess
         - Other/None
     validations:
       required: true

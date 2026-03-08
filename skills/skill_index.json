@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "skills": {
+    "test_skill": {
+      "description": "A test",
+      "entry_point": "run",
+      "signature": "",
+      "tags": [],
+      "created_at": "2026-03-08T09:14:09.859854",
+      "usage_count": 0,
+      "success_count": 0
+    }
+  }
+}

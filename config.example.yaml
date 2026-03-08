@@ -5,7 +5,7 @@ execution:
   workspace_dir: ./workspace
   servers_dir: ./servers
   skills_dir: ./skills
-  sandbox_type: opensandbox  # Default. Options: opensandbox | microsandbox | monty
+  sandbox_type: opensandbox  # Supported sandboxed backend
   sandbox_image: python
   allow_network_access: false
 

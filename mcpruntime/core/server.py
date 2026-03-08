@@ -2,7 +2,7 @@
 """Entry point for running the Code Execution MCP framework as an MCP server.
 
 Usage:
-    python -m code_execution_mcp.server [stdio|sse|http]
+    python -m server.mcp_server [stdio|sse|http]
     
 Or:
     code-execution-mcp-server [stdio|sse|http]
