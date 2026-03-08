@@ -133,7 +133,7 @@ MCPRuntime is built for high-throughput, low-latency execution of agent-generate
 | Capability | Specification | Comparison |
 |------------|---------------|------------|
 | **Cold Start** | **~1s** (OpenSandbox) | vs 2-5s (AWS Lambda) |
-| **Context** | **Infinite (RLM)** | vs 128k - 2M Tokens (LLM Limit) |
+| **Context** | **Unbounded via RLM** | vs 128k - 2M Tokens (LLM Limit) |
 | **Isolation** | Docker containers (via OpenSandbox) | Built-in via Execution Backend |
 | **State** | Persistent workspace pushing | vs Ephemeral / Stateless |
 | **Cost** | Self-hosted ($0) | vs Cloud metering |
@@ -155,7 +155,7 @@ MCPRuntime uses **OpenSandbox** as its execution backend, providing Docker conta
 *   **Skill Evolution (Self-Growing Tool Library)**: Successfully executed code is saved as typed, callable modules that the agent can reuse in future sessions.
 *   **Execution Replay & Time-Travel Debugging**: Seamlessly log and restore sandbox state to rewind and fork previous agent sessions.
 *   **Streaming Execution**: Live, Server-Sent Events (SSE) streaming of long-running execution outputs.
-*   **Recursive Language Models (RLM)**: Process infinite context limits by treating data as variables and recursively querying the LLM loop.
+*   **Recursive Language Models (RLM)**: Process unbounded context by treating data as variables and recursively querying the LLM loop.
 *   **Volume Mounting & State**: Persistent workspaces allow multi-turn reasoning with state preservation.
 *   **Async Middleware**: "Fire-and-forget" background task execution.
 
@@ -257,46 +257,36 @@ Turn 2 (related task):
 
 This closed-loop creates an **accumulating advantage**: the more tasks the agent solves, the richer its tool library becomes, and the faster and cheaper future tasks execute.
 
-**Backend Compatibility:** Skill Evolution is seamlessly integrated across all MCPRuntime runtimes natively. When running containers via OpenSandbox or processing infinite-context chunks through the `RecursiveAgent`, evolved skills are automatically saved, discovered, and shared.
+**Backend Compatibility:** Skill Evolution works across all MCPRuntime runtimes. Skills are automatically saved, discovered, and shared whether running containers via OpenSandbox or processing infinite-context chunks through the Recursive Language Model.
 
-> See [`examples/17_skill_evolution.py`](examples/17_skill_evolution.py) for an end-to-end demo.
+> See [`examples/17_skill_evolution.py`](examples/17_skill_evolution.py) for an end-to-end demo showing `AgentHelper` + `SkillManager` setup.
 
 ## 7. Recursive Language Models (RLM)
 
-MCPRuntime supports **Recursive Language Models**, a powerful pattern for processing infinite context by treating it as a programmable variable.
+MCPRuntime supports **Recursive Language Models**, a powerful pattern for processing unbounded context by treating it as a programmable variable.
 
-*   **Recursive Querying**: The agent writes code to inspect, slice, and chunk this data, and recursively calls the LLM via `ask_llm()` to process each chunk. The runtime injects `ask_llm` (and `CONTEXT_DATA` when applicable) into the sandbox so the generated code can call it without importing.
-*   **No Context Window Limits**: Process gigabytes of text by delegating the "reading" to a loop, only pulling relevant info into the agent's context.
+*   **Recursive Querying**: The agent writes code to inspect, slice, and chunk large datasets, then recursively calls the LLM via `ask_llm()` to process each chunk. The runtime injects `ask_llm` (and `CONTEXT_DATA` when applicable) into the sandbox so the generated code can call it without importing.
+*   **Unbounded Context**: Process gigabytes of text by delegating the "reading" to a loop, only pulling relevant info into the agent's context.
 
+**Example pattern:**
 ```python
-from mcpruntime import create_agent
+# Agent task: "Go through every ticket in the backlog. Escalate to engineering 
+# any where the user is frustrated by the login UI change."
 
-agent = create_agent()
-
-# 1. User provides a natural-language goal.
-# 2. The coding agent generates the program below.
-# 3. The generated program calls ask_llm() *from inside the sandbox*,
-#    re-entering the LLM to semantically analyse each chunk of a backlog
-#    too large to fit in the original context window.
-result, output, error = agent.execute_task(
-    "Go through every ticket in the backlog. "
-    "Escalate to engineering any where the user is frustrated by the login UI change."
-)
 # ↓ Agent-generated code running in the sandbox:
-#   (ask_llm is injected by the runtime — no import needed)
 #   from tools.zendesk import get_all_tickets, escalate_ticket
 #
 #   for ticket in get_all_tickets():          # may be thousands of tickets
-#       verdict = ask_llm(                    # ← LLM called recursively mid-execution
-#           f'Is this user frustrated with the login UI? {ticket.text}'
+#       verdict = ask_llm(                    # ← LLM called recursively
+#           f'Is this user frustrated? {ticket.text}'
 #       )
 #       if 'yes' in verdict.lower():
 #           escalate_ticket(ticket.id, team='engineering')
-
-print(output)
 ```
 
-See `examples/15_recursive_agent.py` and `examples/16_recursive_agent_with_tools.py` for complete end-to-end examples.
+RLM uses the `RecursiveAgent` class which handles chunking and recursive LLM calls automatically.
+
+> See [`examples/15_recursive_agent.py`](examples/15_recursive_agent.py) for complete setup with `RecursiveAgent`, `FilesystemHelper`, and `OpenSandboxExecutor`.
 
 ## 8. Execution Replay & Time-Travel Debugging
 
