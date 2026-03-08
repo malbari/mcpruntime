@@ -466,8 +466,9 @@ def main():
             
         # If running both approaches, also save a standalone comparison report
         if getattr(args, "approach", "ptc") == "both" and getattr(args, "output", None):
+            from pathlib import Path as _Path
             comparison_report = ReportGenerator.approach_comparison_report(metrics)
-            comparison_path = Path(args.output).parent / "ptc_vs_fc_comparison.md"
+            comparison_path = _Path(args.output).parent / "ptc_vs_fc_comparison.md"
             ReportGenerator.save_report(comparison_report, str(comparison_path))
             print(f"PTC vs FC comparison saved to {comparison_path}")
             
