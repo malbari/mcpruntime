@@ -1,24 +1,97 @@
 #!/usr/bin/env python3
 """
-Demo — create_agent() nativo + OpenSandbox REST API (porta 44772)
-====================================================================
-Usa i componenti del framework MCPRuntime in modo canonico.
+MCPRuntime — Demo di integrazione server-side
+=============================================
 
-Architettura:
-  - OpenSandbox execd (porta 44772): esegue codice via POST /code (NDJSON).
-    I file vengono uploadati nel container via:
-      POST /directories  — crea le directory necessarie
-      POST /files/upload — multipart upload (metadata JSON + file binario)
-  - create_agent() gestisce FilesystemHelper, ToolSelector, CodeGenerator.
-  - Un proxy locale instrada le chiamate MCP dal container all'host.
+Mostra il pattern corretto per usare MCPRuntime in un servizio server-side
+multi-utente. Il codice è organizzato in due fasi distinte con responsabilità
+chiaramente separate.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  STARTUP  (una volta sola, all'avvio del processo server)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Vedi: startup() → AppState
+
+  1. Generazione stub
+     Crea wrapper Python dai tool MCP (idempotente, salta se già presenti).
+     Output: servers/<server>/<tool_name>.py
+
+  2. Proxy MCP
+     Avvia un bridge HTTP su porta libera: il codice eseguito nel container
+     chiama http://host.docker.internal:<port>/call-tool e il proxy lo
+     instrada al server MCP reale sull'host.
+     Condiviso tra tutti gli utenti.
+
+  3. Agent (create_agent)
+     Inizializza FilesystemHelper, ToolSelector (carica il modello embeddings
+     all-MiniLM-L6-v2 su MPS/CPU), CodeGenerator (LLM client via litellm).
+     Costoso: caricamento modello ~4s, allocato una sola volta.
+
+  4. Tool discovery
+     Legge gli stub da disco e costruisce il catalogo di tool disponibili.
+     Risultato cachato in AppState.discovered_tools, condiviso tra richieste.
+
+  5. Workspace upload
+     Carica stub e client proxy nel container OpenSandbox via:
+       POST /directories  — mkdir -p delle directory necessarie
+       POST /files/upload — multipart upload (un'unica richiesta per tutti i file)
+     I file persistono sul filesystem del container finché è in esecuzione:
+     non vanno ricaricati per ogni richiesta.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PER RICHIESTA  (per ogni prompt utente)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Vedi: handle_prompt(state, prompt) → str
+
+  1. Tool selection
+     Ricerca semantica (embeddings) sul catalogo cachato per trovare il tool
+     più rilevante per il prompt dell'utente.
+
+  2. Sample MCP call
+     Chiama il tool scelto con argomenti vuoti per ottenere la struttura reale
+     della risposta. Usata dal LLM come schema concreto per generare codice
+     che naviga correttamente i campi (evita allucinazioni sulla struttura dati).
+
+  3. Code generation (LLM)
+     Il CodeGenerator produce codice Python personalizzato per il prompt,
+     informato dalla firma dello stub e dalla risposta campione.
+
+  4. Kernel reset
+     DELETE /code/contexts — azzera lo stato Jupyter nel container prima di
+     ogni esecuzione. Garantisce isolamento tra richieste successive e previene
+     che moduli cachati da una richiesta precedente inquinino quella attuale.
+
+  5. Esecuzione nel container
+     POST /code — invia il codice generato a execd (NDJSON streaming).
+     Il codice importa i tool da /workspace/servers/<server>/<tool>.py e
+     chiama il proxy per le chiamate MCP reali.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  NOTE PER AMBIENTI MULTI-UTENTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  • AppState è read-only dopo startup: handle_prompt è thread-safe per lettura.
+
+  • Il proxy MCP è condiviso (socketserver.TCPServer gestisce connessioni
+    concorrenti su thread separati).
+
+  • Il kernel reset (DELETE /code/contexts) è GLOBALE: in produzione multi-utente
+    usare contesti separati per utente:
+      POST  /code/context          → {"language":"python"} → {"id": "<ctx_id>"}
+      POST  /code  + body.context_id = ctx_id   → esecuzione isolata
+      DELETE /code/contexts/<ctx_id>             → cleanup after request
+    Ogni utente ha così il suo kernel indipendente senza interferenze.
+
+  • Per isolamento hardware completo, usare un container OpenSandbox per utente
+    (sandbox pool) anziché un container condiviso.
 
 Prerequisiti (gestiti da run_demo.sh):
-  - Virtual env con: fastmcp openai python-dotenv httpx litellm
-  - Stub già presenti in servers/<server>/ (generati da generate_tool_files.py)
+  - Virtual env con: fastmcp httpx litellm python-dotenv sentence-transformers
   - OpenSandbox execd porta 44772 accessibile
+  - demo/servers.json configurato con i server MCP
 """
 
 import asyncio
+import concurrent.futures
 import json
 import logging
 import os
@@ -27,6 +100,7 @@ import socketserver
 import sys
 import threading
 import urllib.request
+from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Optional
@@ -66,7 +140,6 @@ SERVERS_DIR     = _ROOT / "servers"
 # Lista server MCP — caricata da demo/servers.json (unico punto di configurazione)
 _SERVERS_FILE   = _DEMO_DIR / "servers.json"
 SERVERS_CONFIG: list[dict] = json.loads(_SERVERS_FILE.read_text(encoding="utf-8"))["servers"]
-_SERVERS_BY_NAME: dict[str, str] = {}  # name → url; popolato da _start_proxy()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -93,14 +166,20 @@ async def _mcp_call(tool: str, args: dict, url: str) -> Any:
 
 
 class _ProxyHandler(BaseHTTPRequestHandler):
-    """Riceve POST /call-tool dal container, chiama MCP, risponde JSON."""
+    """Riceve POST /call-tool dal container, chiama MCP, risponde JSON.
+
+    La sottoclasse _Handler (creata in _start_proxy) inietta _servers come
+    attributo di classe, così ogni istanza ha accesso al routing senza
+    dipendenze da variabili globali di modulo.
+    """
+    _servers: dict[str, str] = {}  # sovrascritto da _Handler in _start_proxy
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         try:
             p = json.loads(body)
             server_name = p.get("server", "")
-            server_url  = _SERVERS_BY_NAME.get(server_name)
+            server_url  = self._servers.get(server_name)
             if not server_url:
                 raise ValueError(f"Server MCP sconosciuto: {server_name!r}")
             logger.info(f"[Proxy] → {server_name}/{p['tool']}({json.dumps(p.get('args',{}))[:80]})")
@@ -132,17 +211,20 @@ class _ProxyHandler(BaseHTTPRequestHandler):
         logger.debug(f"[Proxy HTTP] {fmt % args}")
 
 
-def _start_proxy(servers_config: list[dict]) -> tuple[socketserver.TCPServer, int]:
-    """Avvia il proxy e popola _SERVERS_BY_NAME con le URL da servers.json."""
-    _SERVERS_BY_NAME.clear()
-    _SERVERS_BY_NAME.update({s["name"]: s["url"] for s in servers_config})
-    srv = socketserver.TCPServer(("", 0), _ProxyHandler)
+def _start_proxy(servers_config: list[dict]) -> tuple[socketserver.TCPServer, int, dict[str, str]]:
+    """Avvia il proxy e restituisce (server, porta, {name: url})."""
+    servers_by_name = {s["name"]: s["url"] for s in servers_config}
+
+    # Il ProxyHandler accede a servers_by_name tramite closure sulla classe
+    class _Handler(_ProxyHandler):
+        _servers = servers_by_name
+
+    srv = socketserver.TCPServer(("", 0), _Handler)
     port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    for name, url in _SERVERS_BY_NAME.items():
-        logger.info(f"[STEP 1] Proxy: {name} → {url}")
-    logger.info(f"[STEP 1] Proxy MCP avviato sulla porta {port}")
-    return srv, port
+    for name, url in servers_by_name.items():
+        logger.debug("[Proxy] %s → %s", name, url)
+    return srv, port, servers_by_name
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -306,40 +388,70 @@ def _rest_execute(code: str, base_url: str = "http://localhost:44772") -> tuple[
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  Main
+#  Stato globale del server  (inizializzato una volta sola in startup)
 # ══════════════════════════════════════════════════════════════════════════════
 
-async def main() -> None:
+@dataclass
+class AppState:
+    """Tutto ciò che viene creato allo startup e condiviso tra le richieste.
+
+    Tutti i campi sono read-only dopo startup() → handle_prompt è thread-safe.
+    """
+    proxy_srv: socketserver.TCPServer       # proxy MCP (bridge container→host)
+    proxy_port: int                          # porta assegnata dal SO
+    servers_by_name: dict[str, str]          # name → URL server MCP
+    agent: Any                               # agente MCPRuntime (model + LLM)
+    discovered_tools: dict                   # catalogo tool (cachato da disco)
+    all_server_names: list[str]              # nomi dei server da servers.json
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  STARTUP  — eseguita una volta sola all'avvio del processo server
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def startup() -> AppState:
+    """Inizializza tutte le risorse condivise tra le richieste.
+
+    Costoso (~5-10s): caricamento modello embeddings, LLM client, upload
+    workspace nel container. Va chiamato una volta sola al boot del server.
+    """
     from mcpruntime import create_agent
 
     logger.info("=" * 60)
-    logger.info("Demo — create_agent() + execd REST (porta 44772)")
+    logger.info("MCPRuntime — Startup")
     logger.info("=" * 60)
 
-    # ── STEP 1: Proxy ─────────────────────────────────────────────────────
-    proxy_srv, proxy_port = _start_proxy(SERVERS_CONFIG)
-
-    # ── STEP 2: Stub (idempotente, per ogni server in servers.json) ────────
+    # ── 1. Genera stub (idempotente) ──────────────────────────────────────
+    # I wrapper Python dai tool MCP vengono generati una volta e salvati su
+    # disco in servers/<server>/<tool>.py. Operazione idempotente: salta i
+    # server che hanno già gli stub.
     sys.path.insert(0, str(_ROOT / "scripts"))
     from generate_tool_files import generate_stubs  # type: ignore[import]
-    for _srv in SERVERS_CONFIG:
-        _stub_dir = SERVERS_DIR / _srv["name"]
-        _py_stubs = (
-            [f for f in _stub_dir.glob("*.py") if f.name != "__init__.py"]
-            if _stub_dir.exists() else []
+    for srv in SERVERS_CONFIG:
+        stub_dir = SERVERS_DIR / srv["name"]
+        existing = (
+            [f for f in stub_dir.glob("*.py") if f.name != "__init__.py"]
+            if stub_dir.exists() else []
         )
-        if not _py_stubs:
-            logger.info("[STEP 2] Generazione stub '%s' da %s ...", _srv["name"], _srv["url"])
+        if not existing:
+            logger.info("[Startup 1/5] Generazione stub '%s' da %s ...", srv["name"], srv["url"])
             await generate_stubs(
-                mcp_url=_srv["url"], server_name=_srv["name"],
+                mcp_url=srv["url"], server_name=srv["name"],
                 servers_dir=SERVERS_DIR, verbose=True,
             )
         else:
-            logger.info("[STEP 2] Stub '%s': %d tool già presenti", _srv["name"], len(_py_stubs))
+            logger.info("[Startup 1/5] Stub '%s': %d tool presenti", srv["name"], len(existing))
 
-    # ── STEP 3: create_agent (discovery, selection, codegen) ──────────────
-    # llm_enabled=True serve al CodeGenerator (via litellm) per generate_from_prompt.
-    # L'executor di default NON viene usato per l'esecuzione (usiamo _rest_execute).
+    # ── 2. Avvia proxy MCP ────────────────────────────────────────────────
+    # Il proxy è un HTTP server locale (porta scelta dal SO) che il codice
+    # nel container chiama per eseguire tool MCP. È condiviso tra tutte le
+    # richieste e gestisce connessioni concorrenti su thread separati.
+    proxy_srv, proxy_port, servers_by_name = _start_proxy(SERVERS_CONFIG)
+    logger.info("[Startup 2/5] Proxy MCP su porta %d", proxy_port)
+
+    # ── 3. Agent (embeddings + LLM client) ───────────────────────────────
+    # create_agent carica il modello sentence-transformers (~4s su CPU,
+    # meno su MPS) e inizializza il client LLM. Allocato una sola volta.
     agent = create_agent(
         servers_dir=str(SERVERS_DIR.relative_to(_ROOT)),
         llm_enabled=True,
@@ -348,57 +460,107 @@ async def main() -> None:
         llm_azure_deployment=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1"),
         llm_api_key=os.environ["AZURE_OPENAI_API_KEY"],
     )
-    logger.info("[STEP 3] Agent pronto (discovery+selection+codegen via framework)")
+    logger.info("[Startup 3/5] Agent pronto (embeddings + LLM client)")
 
-    # ── STEP 4: FilesystemHelper → ToolSelector ───────────────────────────
-    # discover_tools/_select_tools_for_task sono sync ma chiamano asyncio.run()
-    # internamente → vanno eseguiti in un thread separato per non bloccare il loop.
-    import concurrent.futures
-    loop = asyncio.get_event_loop()
+    # ── 4. Tool discovery (cached) ────────────────────────────────────────
+    # Legge gli stub da disco e costruisce il catalogo dei tool disponibili.
+    # Il risultato viene salvato in AppState.discovered_tools e riusato per
+    # ogni richiesta senza rileggere il filesystem.
+    # NOTA: discover_tools chiama asyncio.run() internamente → thread separato.
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        discovered = await loop.run_in_executor(
+        loop = asyncio.get_event_loop()
+        discovered_tools = await loop.run_in_executor(
             pool, lambda: agent.discover_tools(verbose=False)
         )
-        selected = await loop.run_in_executor(
-            pool, lambda: agent.select_tools_for_task(PROMPT, discovered, verbose=False)
-        )
-    logger.info("[STEP 4] Tool selezionati: %s", selected)
+    tool_count = sum(len(t) for t in discovered_tools.values())
+    logger.info("[Startup 4/5] %d tool scoperti in %d server", tool_count, len(discovered_tools))
 
-    # Primo tool selezionato, con il server di appartenenza
-    server_name_selected, tool_safe = next(
+    # ── 5. Workspace upload (una sola volta) ──────────────────────────────
+    # Carica stub e client proxy nel container OpenSandbox.
+    # I file restano su disco del container finché è in esecuzione: non serve
+    # ricaricarli per ogni richiesta. Solo mcp_client.py dipende dal proxy_port
+    # (fisso dopo lo startup) → tutto stabile per tutta la vita del server.
+    all_server_names = [s["name"] for s in SERVERS_CONFIG]
+    _upload_workspace(proxy_port, SANDBOX_HOST, SERVERS_DIR, all_server_names, OPENSANDBOX_URL)
+    logger.info("[Startup 5/5] Workspace caricato nel container OpenSandbox")
+
+    logger.info("=" * 60)
+    logger.info("Startup completato — pronto a ricevere richieste")
+    logger.info("=" * 60)
+
+    return AppState(
+        proxy_srv=proxy_srv,
+        proxy_port=proxy_port,
+        servers_by_name=servers_by_name,
+        agent=agent,
+        discovered_tools=discovered_tools,
+        all_server_names=all_server_names,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  PER RICHIESTA  — eseguita per ogni prompt utente
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def handle_prompt(state: AppState, prompt: str) -> str:
+    """Gestisce un singolo prompt utente e restituisce l'output del container.
+
+    Tutte le risorse costose (model, LLM client, stub su disco, proxy) sono
+    già pronte in `state`. Questa funzione esegue solo le operazioni
+    dipendenti dal prompt specifico.
+
+    Multi-utente: in produzione sostituire il kernel reset globale con
+    contesti per-utente (vedi note nel docstring del modulo).
+    """
+    # ── 1. Tool selection ─────────────────────────────────────────────────
+    # Ricerca semantica sul catalogo cachato: trova il tool più pertinente
+    # al prompt. Usa embeddings (MPS/CPU) senza rileggere disco o rete.
+    # NOTA: select_tools_for_task chiama asyncio.run() → thread separato.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        loop = asyncio.get_event_loop()
+        selected = await loop.run_in_executor(
+            pool, lambda: state.agent.select_tools_for_task(
+                prompt, state.discovered_tools, verbose=False
+            )
+        )
+    logger.info("[Request] Tool selezionati: %s", selected)
+
+    server_name, tool_safe = next(
         ((srv, tools[0]) for srv, tools in selected.items() if tools),
         (SERVERS_CONFIG[0]["name"], "news_get"),
     )
-    server_url_selected = _SERVERS_BY_NAME.get(
-        server_name_selected, SERVERS_CONFIG[0]["url"]
-    )
-    stub_file = SERVERS_DIR / server_name_selected / f"{tool_safe}.py"
-    stub_src  = stub_file.read_text(encoding="utf-8")
+    server_url = state.servers_by_name.get(server_name, SERVERS_CONFIG[0]["url"])
+    stub_file = SERVERS_DIR / server_name / f"{tool_safe}.py"
+    stub_src = stub_file.read_text(encoding="utf-8")
 
-    # Recupera il nome originale MCP dallo stub (es. "news-get")
     m = re.search(r'call_mcp_tool\([^,]+,\s*"([^"]+)"', stub_src)
     original_tool = m.group(1) if m else tool_safe.replace("_", "-")
 
-    # ── STEP 5: Campione reale (struttura risposta) ────────────────────────
-    logger.info("[STEP 5] Chiamata campione: %s/%s({})", server_name_selected, original_tool)
-    sample = await _mcp_call(original_tool, {}, server_url_selected)
+    # ── 2. Sample MCP call ────────────────────────────────────────────────
+    # Chiama il tool con args vuoti per ottenere la struttura reale della
+    # risposta. Il LLM usa questo schema concreto per generare codice che
+    # naviga i campi corretti (evita allucinazioni sulla struttura dati).
+    logger.info("[Request] Sample call: %s/%s", server_name, original_tool)
+    sample = await _mcp_call(original_tool, {}, server_url)
     sample_json = json.dumps(sample, ensure_ascii=False, indent=2)[:3000]
-    logger.info("[STEP 5] Campione ricevuto: %d chars", len(sample_json))
+    logger.info("[Request] Campione ricevuto: %d chars", len(sample_json))
 
-    # ── STEP 6: CodeGenerator → genera codice con struttura reale ─────────
-    # Usa generate_from_prompt del framework (litellm → Azure OpenAI)
-    logger.info("[STEP 6] Generazione codice via CodeGenerator (litellm) ...")
-    code_raw = agent.code_generator.generate_from_prompt(
+    # ── 3. Code generation (LLM) ──────────────────────────────────────────
+    # Il CodeGenerator genera codice Python personalizzato per il prompt.
+    # Input: firma dello stub + risposta campione + prompt utente.
+    # Output: codice Python pronto per essere eseguito nel container.
+    logger.info("[Request] Generazione codice via LLM ...")
+    code_raw = state.agent.code_generator.generate_from_prompt(
         system_content=(
             "Sei un generatore di codice Python. "
             "Rispondi SOLO con codice eseguibile, senza markdown, senza spiegazioni."
         ),
         user_content=(
             f"Importa la funzione con:\n"
-            f"  from servers.{server_name_selected}.{tool_safe} import {tool_safe}\n\n"
+            f"  from servers.{server_name}.{tool_safe} import {tool_safe}\n\n"
             f"Firma della funzione:\n{stub_src}\n\n"
             f"Campione REALE della risposta (1 risultato):\n{sample_json}\n\n"
-            f"Prompt utente: {PROMPT!r}\n\n"
+            f"Prompt utente: {prompt!r}\n\n"
             "Scrivi codice che:\n"
             f"1. Importa {tool_safe} come indicato sopra\n"
             "2. Chiama la funzione con limit=5 (se esiste), lang='it' se utile\n"
@@ -408,10 +570,8 @@ async def main() -> None:
         ),
     )
     if not code_raw:
-        logger.error("[STEP 6] CodeGenerator non ha prodotto codice (litellm disponibile?)")
-        sys.exit(1)
+        raise RuntimeError("LLM non ha prodotto codice")
 
-    # Ripulisce fence markdown se presenti
     for pfx in ("```python\n", "```python", "```\n", "```"):
         if code_raw.startswith(pfx):
             code_raw = code_raw[len(pfx):]
@@ -419,42 +579,54 @@ async def main() -> None:
     if code_raw.endswith("```"):
         code_raw = code_raw[:-3]
     code = code_raw.strip()
-    logger.info("[STEP 6] Codice generato (%d chars):\n%s", len(code), code)
+    logger.info("[Request] Codice generato (%d chars):\n%s", len(code), code)
 
-    # ── STEP 7: Upload workspace + Esecuzione via execd REST (porta 44772) ──
-    # 1. POST /directories — crea struttura directory nel container
-    # 2. POST /files/upload — multipart upload di client/ e servers/<name>/
-    # 3. POST /code — esegue solo il codice generato (no preambolo base64)
-    logger.info("[STEP 7] Upload workspace via execd API (%s) ...", OPENSANDBOX_URL)
-    all_server_names = [s["name"] for s in SERVERS_CONFIG]
-    _upload_workspace(proxy_port, SANDBOX_HOST, SERVERS_DIR, all_server_names, OPENSANDBOX_URL)
-
-    # Clear the Jupyter kernel's module cache for workspace packages so the
-    # freshly uploaded files are always imported, not stale cached modules.
-    sys_path_header = (
+    # ── 4+5. Kernel reset + esecuzione nel container ──────────────────────
+    # Reset: DELETE /code/contexts — azzera lo stato Python nel container.
+    # Garantisce che moduli cachati da richieste precedenti non inquinino
+    # questa esecuzione. I FILE sul disco del container restano intatti.
+    #
+    # Il preamble sys.path è necessario per trovare /workspace dopo il reset.
+    # La pulizia sys.modules rimuove eventuali import residui in memoria.
+    #
+    # MULTI-UTENTE: sostituire _rest_execute con esecuzione su contesto
+    # dedicato per utente (context_id = hash(user_id)) per isolamento reale.
+    code_with_preamble = (
         "import sys\n"
         "for _k in list(sys.modules.keys()):\n"
         "    if _k.startswith(('client', 'servers')):\n"
         "        del sys.modules[_k]\n"
         "sys.path.insert(0, '/workspace')\n\n"
-    )
-    full_code = sys_path_header + code
-    logger.debug("[STEP 7] Codice da eseguire (%d chars):\n%s", len(full_code), full_code[:500])
-    logger.info("[STEP 7] Esecuzione codice via execd REST ...")
-    stdout, stderr = _rest_execute(full_code, OPENSANDBOX_URL)
+    ) + code
+
+    logger.info("[Request] Esecuzione nel container (%s) ...", OPENSANDBOX_URL)
+    stdout, stderr = _rest_execute(code_with_preamble, OPENSANDBOX_URL)
 
     if stderr:
-        logger.error("[STEP 7] Stderr: %s", stderr)
+        logger.error("[Request] Stderr: %s", stderr)
     if stdout:
         first_line = stdout.splitlines()[0] if stdout.strip() else ""
         if len(first_line) > 120:
             first_line = first_line[:120] + "..."
-        logger.info("[STEP 7] Output (prima riga): %s", first_line)
-    elif not stderr:
-        logger.warning("[STEP 7] Nessun output")
+        logger.info("[Request] Output (prima riga): %s", first_line)
+    else:
+        logger.warning("[Request] Nessun output")
 
-    proxy_srv.shutdown()
-    logger.info("Demo completata.")
+    return stdout or ""
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Entrypoint demo  (simula un server che riceve una richiesta)
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def main() -> None:
+    """Simula il ciclo di vita di un server: startup → handle_prompt → shutdown."""
+    state = await startup()
+    try:
+        await handle_prompt(state, PROMPT)
+    finally:
+        state.proxy_srv.shutdown()
+        logger.info("Demo completata.")
 
 
 if __name__ == "__main__":
