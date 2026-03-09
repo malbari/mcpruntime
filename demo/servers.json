@@ -1,0 +1,9 @@
+{
+  "servers": [
+    {
+      "name": "api_to_mcp",
+      "url": "http://localhost:3001/mcp",
+      "description": "API-to-MCP wrapper per API del turismo ed eventi"
+    }
+  ]
+}

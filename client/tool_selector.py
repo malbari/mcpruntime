@@ -109,6 +109,9 @@ class ToolSelector:
                             if torch.cuda.is_available():
                                 device = "cuda"
                                 logger.info("GPU available, using CUDA for embeddings")
+                            elif torch.backends.mps.is_available():
+                                device = "mps"
+                                logger.info("Apple Silicon GPU available, using MPS for embeddings")
                             else:
                                 logger.debug("GPU not available, using CPU")
                         except Exception as e:
@@ -130,7 +133,10 @@ class ToolSelector:
                 if use_gpu:
                     try:
                         import torch
-                        device = "cuda" if torch.cuda.is_available() else "cpu"
+                        if torch.cuda.is_available():
+                            device = "cuda"
+                        elif torch.backends.mps.is_available():
+                            device = "mps"
                     except Exception as e:
                         logger.debug(f"PyTorch broken ({e}), using CPU")
                 

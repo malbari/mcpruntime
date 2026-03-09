@@ -77,6 +77,118 @@
       "path": "/Users/d065243/code-execution-mcp/servers/weather/get_weather.py",
       "server": "weather",
       "tool": "get_weather"
+    },
+    "api_to_mcp.cities_index": {
+      "description": "api_to_mcp cities_index: Chiama cities-index su api_to_mcp.",
+      "hash": "d04542e28799019d7de39d04ac967b38",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/cities_index.py",
+      "server": "api_to_mcp",
+      "tool": "cities_index"
+    },
+    "api_to_mcp.events_categories_get": {
+      "description": "api_to_mcp events_categories_get: Chiama events-categories-get su api_to_mcp.",
+      "hash": "169d21981aa0773f1edaef78f1d6b56a",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/events_categories_get.py",
+      "server": "api_to_mcp",
+      "tool": "events_categories_get"
+    },
+    "api_to_mcp.events_get": {
+      "description": "api_to_mcp events_get: Chiama events-get su api_to_mcp.",
+      "hash": "ce86792de8a4aa70cbe940af6416c7eb",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/events_get.py",
+      "server": "api_to_mcp",
+      "tool": "events_get"
+    },
+    "api_to_mcp.get_status": {
+      "description": "api_to_mcp get_status: Chiama get-status su api_to_mcp.",
+      "hash": "24621bae3756e2deee652cf6bf3dcd3d",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/get_status.py",
+      "server": "api_to_mcp",
+      "tool": "get_status"
+    },
+    "api_to_mcp.iat_get": {
+      "description": "api_to_mcp iat_get: Chiama iat-get su api_to_mcp.",
+      "hash": "9541fddc85152e7c95adfc05d0bc7962",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/iat_get.py",
+      "server": "api_to_mcp",
+      "tool": "iat_get"
+    },
+    "api_to_mcp.images_get": {
+      "description": "api_to_mcp images_get: Chiama images-get su api_to_mcp.",
+      "hash": "3374d3cbf805328fd9dfdd0bf8486a72",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/images_get.py",
+      "server": "api_to_mcp",
+      "tool": "images_get"
+    },
+    "api_to_mcp.interests_get": {
+      "description": "api_to_mcp interests_get: Chiama interests-get su api_to_mcp.",
+      "hash": "fd36535ad094322919e02cb537be6082",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/interests_get.py",
+      "server": "api_to_mcp",
+      "tool": "interests_get"
+    },
+    "api_to_mcp.itineraries_get": {
+      "description": "api_to_mcp itineraries_get: Chiama itineraries-get su api_to_mcp.",
+      "hash": "3163341468ac598dd941ec5974a20533",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/itineraries_get.py",
+      "server": "api_to_mcp",
+      "tool": "itineraries_get"
+    },
+    "api_to_mcp.languages_get": {
+      "description": "api_to_mcp languages_get: Chiama languages-get su api_to_mcp.",
+      "hash": "081578c21d32733864f48406b70a4b43",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/languages_get.py",
+      "server": "api_to_mcp",
+      "tool": "languages_get"
+    },
+    "api_to_mcp.localities_get": {
+      "description": "api_to_mcp localities_get: Chiama localities-get su api_to_mcp.",
+      "hash": "cefa7a8cbe5a5bf98d08cf2a34f3a345",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/localities_get.py",
+      "server": "api_to_mcp",
+      "tool": "localities_get"
+    },
+    "api_to_mcp.news_get": {
+      "description": "api_to_mcp news_get: Chiama news-get su api_to_mcp.",
+      "hash": "7c7028a4e32bb417b5c022c0d9ce66ea",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/news_get.py",
+      "server": "api_to_mcp",
+      "tool": "news_get"
+    },
+    "api_to_mcp.poi_list_get": {
+      "description": "api_to_mcp poi_list_get: Chiama poi-list-get su api_to_mcp.",
+      "hash": "46baf49af1ab3a876f1bf427f1b77c09",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/poi_list_get.py",
+      "server": "api_to_mcp",
+      "tool": "poi_list_get"
+    },
+    "api_to_mcp.poi_single_get": {
+      "description": "api_to_mcp poi_single_get: Chiama poi-single-get su api_to_mcp.",
+      "hash": "7d55e1f1bffbc903861953b26fed1930",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/poi_single_get.py",
+      "server": "api_to_mcp",
+      "tool": "poi_single_get"
+    },
+    "api_to_mcp.target_get": {
+      "description": "api_to_mcp target_get: Chiama target-get su api_to_mcp.",
+      "hash": "14ec98a442f85b4073b3b624d07e0809",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/target_get.py",
+      "server": "api_to_mcp",
+      "tool": "target_get"
+    },
+    "api_to_mcp.thems_get": {
+      "description": "api_to_mcp thems_get: Chiama thems-get su api_to_mcp.",
+      "hash": "c0a8e0f2bcdae499e14adff661a2f40c",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/thems_get.py",
+      "server": "api_to_mcp",
+      "tool": "thems_get"
+    },
+    "api_to_mcp.webcam_get": {
+      "description": "api_to_mcp webcam_get: Chiama webcam-get su api_to_mcp.",
+      "hash": "1905d19e14ad6810fc80225daa7a5802",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/webcam_get.py",
+      "server": "api_to_mcp",
+      "tool": "webcam_get"
     }
   }
 }
