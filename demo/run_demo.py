@@ -281,9 +281,10 @@ class _ProxyHandler(BaseHTTPRequestHandler):
             if code_raw.endswith("```"):
                 code_raw = code_raw[:-3]
             code = code_raw.strip()
+            _sep = "=" * 80
             logger.info(
-                "[Proxy → Sandbox] LLM #2 codice generato (%d chars) — verrà exec() in sandbox:\n%s",
-                len(code), code,
+                "[Proxy → Sandbox] LLM #2 codice generato (%d chars) — verrà exec() in sandbox:\n%s\n%s\n%s",
+                len(code), _sep, code, _sep,
             )
 
             resp = json.dumps({"code": code}, ensure_ascii=False).encode()
@@ -740,7 +741,8 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
     if code_raw.endswith("```"):
         code_raw = code_raw[:-3]
     code = code_raw.strip()
-    logger.info("[Request] Codice generato (%d chars):\n%s", len(code), code)
+    _sep = "=" * 80
+    logger.info("[Request] Codice generato (%d chars):\n%s\n%s\n%s", len(code), _sep, code, _sep)
 
     # ── 4+5. Kernel reset + esecuzione nel container ──────────────────────
     # Reset: DELETE /code/contexts — azzera lo stato Python nel container.
