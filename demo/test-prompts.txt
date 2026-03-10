@@ -3,3 +3,7 @@ Mi dici le ultime 5 news sul turismo?
 
 # ASST Lariana
 Fammi una breve sintesi del bando di anestesia
+
+# Grafico patologie
+Mostrami un grafico a torta con la distribuzione percentuale dei pazienti per patologia principale, aggregando i dati.
+

@@ -20,7 +20,8 @@
     {
       "name": "mcp-server-chart",
       "url": "http://localhost:1122/mcp",
-      "description": "Generazione di grafici e chart"
+      "description": "Generazione di grafici e chart",
+      "tool_whitelist": ["generate_pie_chart", "generate_bar_chart", "generate_line_chart"]
     },
     {
       "name": "basic-server-preact",
