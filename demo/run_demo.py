@@ -138,10 +138,10 @@ logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 
 # ── Config ───────────────────────────────────────────────────────────────────
-SANDBOX_HOST    = os.environ.get("SANDBOX_HOST", "host.docker.internal")
-OPENSANDBOX_URL = os.environ.get("OPENSANDBOX_URL", "http://localhost:44772")
-PROMPT          = "Mi dici le ultime 5 news sul turismo?"
-SERVERS_DIR     = _ROOT / "servers"
+SANDBOX_HOST       = os.environ.get("SANDBOX_HOST", "host.docker.internal")
+OPENSANDBOX_URL    = os.environ.get("OPENSANDBOX_URL", "http://localhost:44772")
+TEST_PROMPTS_FILE  = _DEMO_DIR / "test-prompts.txt"
+SERVERS_DIR        = _ROOT / "servers"
 
 # Lista server MCP — caricata da demo/servers.json (unico punto di configurazione)
 _SERVERS_FILE   = _DEMO_DIR / "servers.json"
@@ -215,8 +215,10 @@ class _ProxyHandler(BaseHTTPRequestHandler):
             self.wfile.write(resp)
         except Exception as exc:
             logger.error(f"[Proxy] Errore call-tool: {exc}")
-            err = json.dumps({"error": str(exc)}).encode()
-            self.send_response(500)
+            # Restituisce 200 con campo "__mcp_error__" — così il container può
+            # leggere il messaggio invece di ricevere un HTTPError non gestibile.
+            err = json.dumps({"__mcp_error__": str(exc)}).encode()
+            self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(err)))
             self.end_headers()
@@ -345,7 +347,10 @@ def _proxy_client_src(port: int, sandbox_host: str) -> str:
         "        method='POST',\n"
         "    )\n"
         "    with urllib.request.urlopen(_req, timeout=30) as _r:\n"
-        "        return json.loads(_r.read())\n"
+        "        _result = json.loads(_r.read())\n"
+        "    if isinstance(_result, dict) and '__mcp_error__' in _result:\n"
+        "        raise RuntimeError(f\"MCP error: {_result['__mcp_error__']}\")\n"
+        "    return _result\n"
         "\n"
         "def ask_llm(\n"
         "    user_prompt: str,\n"
@@ -637,48 +642,53 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
         )
     logger.info("[Request] Tool selezionati: %s", selected)
 
-    server_name, tool_safe = next(
-        ((srv, tools[0]) for srv, tools in selected.items() if tools),
-        (SERVERS_CONFIG[0]["name"], "news_get"),
-    )
-    server_url = state.servers_by_name.get(server_name, SERVERS_CONFIG[0]["url"])
-    stub_file = SERVERS_DIR / server_name / f"{tool_safe}.py"
-    stub_src = stub_file.read_text(encoding="utf-8")
+    if not selected:
+        logger.warning(
+            "[Request] Nessun tool selezionato per il prompt (similarity sotto soglia) — "
+            "prompt ignorato. Verifica le descrizioni dei tool o il modello embeddings."
+        )
+        return
 
-    # ── 2. Build selected tools info for LLM #2 ───────────────────────────
-    # Passa all'LLM #2 (dentro la sandbox) i tool selezionati — non tutti
-    # quelli scoperti — così può scegliere se chiamarne altri (es. chart)
-    # senza essere sovraccaricato da tool irrilevanti.
+    # ── 2. Raccogli stub di tutti i tool candidati ────────────────────────
+    # La similarity search (top-k) filtra il catalogo a pochi candidati.
+    # LLM #1 (GPT-4.1) sceglie autonomamente quale chiamare: è più preciso
+    # di un ranking embedding per prompt in italiano con stub poco descrittivi.
+    candidate_stubs: list[dict] = []   # [{server, tool, stub_src}]
     selected_tools_info: list[dict] = []
+
     for srv, tool_list in selected.items():
         for tname in tool_list:
             sf = SERVERS_DIR / srv / f"{tname}.py"
+            if not sf.exists():
+                continue
+            src = sf.read_text(encoding="utf-8")
+            candidate_stubs.append({"server": srv, "tool": tname, "stub_src": src})
+            # Estrai prima riga descrittiva per LLM #2
             desc = ""
-            if sf.exists():
-                first_lines = sf.read_text(encoding="utf-8").splitlines()
-                # Extract first non-empty docstring content line
-                in_docstring = False
-                for ln in first_lines:
-                    stripped = ln.strip()
-                    if stripped.startswith('"""') and not in_docstring:
-                        in_docstring = True
-                        content = stripped.lstrip('"').strip()
-                        if content:
-                            desc = content[:200]
-                            break
-                    elif in_docstring and stripped:
-                        desc = stripped[:200]
-                        break
+            for ln in src.splitlines():
+                s = ln.strip().strip('"')
+                if s and not s.startswith("Stub per") and not s.startswith("Generato"):
+                    desc = s[:200]
+                    break
             selected_tools_info.append({"name": tname, "server": srv, "description": desc})
+
+    if not candidate_stubs:
+        logger.error("[Request] Nessuno stub trovato per i tool selezionati — prompt ignorato.")
+        return
+
     selected_tools_json = json.dumps(selected_tools_info, ensure_ascii=False)
     logger.info("[Request] Tool info per LLM #2: %s", selected_tools_json[:200])
 
-    # ── 3. Code generation — LLM #1 genera codice orchestratore ───────────
-    # LLM #1 riceve la firma dello stub e la lista dei tool selezionati.
-    # Genera codice con schema fisso: chiama il tool, passa la risposta reale
-    # ad ask_llm (LLM #2 dal container), ed esegue il codice risultante.
-    # Il campione MCP NON viene più prelevato dall'host: è LLM #2 che vede
-    # i dati reali a runtime dopo che il codice è eseguito nel container.
+    # Stubs concatenati per LLM #1
+    all_stubs_src = "\n\n# ---\n\n".join(
+        f"# Server: {c['server']}  Tool: {c['tool']}\n{c['stub_src']}"
+        for c in candidate_stubs
+    )
+
+    # ── 3. Code generation — LLM #1 sceglie il tool e genera il codice ────
+    # LLM #1 riceve TUTTI gli stub candidati e il prompt utente.
+    # Sceglie autonomamente il tool più adatto, costruisce la chiamata,
+    # e produce il codice orchestratore con schema fisso.
     logger.info("[Request] Generazione codice orchestratore via LLM #1 ...")
     code_raw = state.agent.code_generator.generate_from_prompt(
         system_content=(
@@ -686,18 +696,21 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
             "Rispondi SOLO con codice eseguibile, senza markdown, senza spiegazioni."
         ),
         user_content=(
-            f"Tool selezionati per rispondere al prompt: {selected_tools_json}\n"
-            f"Tool principale (per ottenere dati): {tool_safe} su server '{server_name}'\n\n"
-            f"Firma dello stub del tool principale:\n{stub_src}\n\n"
             f"Prompt utente: {prompt!r}\n\n"
-            "Scrivi ESATTAMENTE questo schema di codice, "
-            "sostituendo SOLO il commento PLACEHOLDER_CALL con la chiamata corretta:\n"
+            f"Tool MCP candidati (stub Python già disponibili in /workspace/servers/):\n\n"
+            f"{all_stubs_src}\n\n"
+            "Scrivi ESATTAMENTE questo schema di codice.\n"
+            "Scegli il tool PIÙ ADATTO al prompt tra quelli elencati.\n"
+            "Sostituisci CHOSEN_SERVER con il nome del server scelto,\n"
+            "CHOSEN_TOOL con il nome del tool scelto, e\n"
+            "PLACEHOLDER_CALL con la chiamata corretta.\n"
             "\n"
-            "import json\n"
-            f"from servers.{server_name}.{tool_safe} import {tool_safe}\n"
+            "import json, sys as _sys\n"
+            "if '/workspace/servers/CHOSEN_SERVER' not in _sys.path: _sys.path.insert(0, '/workspace/servers/CHOSEN_SERVER')\n"
+            "from CHOSEN_TOOL import CHOSEN_TOOL\n"
             "from client.mcp_client import ask_llm\n"
             "\n"
-            "response = PLACEHOLDER_CALL  # ← sostituisci con {tool_safe}(...)\n"
+            "response = PLACEHOLDER_CALL\n"
             "\n"
             "display_code = ask_llm(\n"
             f"    user_prompt={prompt!r},\n"
@@ -707,9 +720,11 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
             "\n"
             "exec(display_code, globals())\n"
             "\n"
-            f"Regole:\n"
-            f"- Sostituisci PLACEHOLDER_CALL con la chiamata corretta a {tool_safe}(...)\n"
-            "- Inietta i parametri utili (limit=5 se disponibile, lang='it' se utile)\n"
+            "Regole:\n"
+            "- Scegli il tool più pertinente al prompt utente\n"
+            "- Passa lang='it' se il parametro esiste nella firma\n"
+            "- Passa limit=5 se il parametro esiste nella firma\n"
+            "- NON inventare valori per parametri filtro (theme, category, type ecc.): lasciali None\n"
             "- Non modificare nessun'altra riga\n"
             "- Non aggiungere altro codice\n"
             "- Non reimportare json, urllib, re"
@@ -737,12 +752,24 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
     #
     # MULTI-UTENTE: sostituire _rest_execute con esecuzione su contesto
     # dedicato per utente (context_id = hash(user_id)) per isolamento reale.
+    # Il preamble:
+    # 1. Pulisce TUTTI i moduli caricati da /workspace (inclusi stub con nomi
+    #    corti come 'events_get' che il kernel Jupyter mantiene tra esecuzioni)
+    # 2. Assicura /workspace nel path
+    # 3. Importa mcp_client e INIETTA la porta corretta di QUESTO run
     code_with_preamble = (
         "import sys\n"
-        "for _k in list(sys.modules.keys()):\n"
-        "    if _k.startswith(('client', 'servers')):\n"
-        "        del sys.modules[_k]\n"
-        "sys.path.insert(0, '/workspace')\n\n"
+        "_del = [_k for _k in sys.modules\n"
+        "        if hasattr(sys.modules[_k], '__file__')\n"
+        "        and (sys.modules[_k].__file__ or '')\n"
+        "        and '/workspace' in (sys.modules[_k].__file__ or '')]\n"
+        "for _k in _del: del sys.modules[_k]\n"
+        "for _k in [_k for _k in sys.modules if _k.startswith(('client', 'servers'))]:\n"
+        "    del sys.modules[_k]\n"
+        "if '/workspace' not in sys.path: sys.path.insert(0, '/workspace')\n"
+        "import client.mcp_client as _mcp_mod\n"
+        f"_mcp_mod._PROXY_PORT = {state.proxy_port}\n"
+        f"_mcp_mod._SANDBOX_HOST = {SANDBOX_HOST!r}\n\n"
     ) + code
 
     logger.info("[Sandbox ▶ ENTER] Codice orchestratore → execd (%s)", OPENSANDBOX_URL)
@@ -766,14 +793,34 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
 #  Entrypoint demo  (simula un server che riceve una richiesta)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _load_prompts() -> list[str]:
+    """Legge test-prompts.txt e restituisce le righe attive (ignora vuote e commenti)."""
+    lines = TEST_PROMPTS_FILE.read_text(encoding="utf-8").splitlines()
+    return [l.strip() for l in lines if l.strip() and not l.strip().startswith("#")]
+
+
 async def main() -> None:
-    """Simula il ciclo di vita di un server: startup → handle_prompt → shutdown."""
+    """Cicla su tutti i prompt in test-prompts.txt, separando ogni test con un divisore."""
+    prompts = _load_prompts()
+    if not prompts:
+        logger.warning("Nessun prompt trovato in %s — esco.", TEST_PROMPTS_FILE)
+        return
+
+    SEP = "=" * 120
+
     state = await startup()
     try:
-        await handle_prompt(state, PROMPT)
+        for idx, prompt in enumerate(prompts, start=1):
+            logger.info(SEP)
+            logger.info("TEST %d/%d: %s", idx, len(prompts), prompt)
+            logger.info(SEP)
+            await handle_prompt(state, prompt)
+            logger.info("Fine TEST %d/%d", idx, len(prompts))
     finally:
         state.proxy_srv.shutdown()
-        logger.info("Demo completata.")
+        logger.info(SEP)
+        logger.info("Demo completata — %d prompt eseguiti.", len(prompts))
+        logger.info(SEP)
 
 
 if __name__ == "__main__":

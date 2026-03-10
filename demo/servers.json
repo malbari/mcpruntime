@@ -1,9 +1,39 @@
 {
   "servers": [
     {
-      "name": "api_to_mcp",
+      "name": "lightrag-server",
+      "url": "http://localhost:8092/mcp",
+      "description": "Documenti pubblici di ASST Lariana via LightRAG"
+    },
+    {
+      "name": "dbhub-server",
+      "url": "http://localhost:8180/mcp",
+      "description": "NLQuery - DBHub MCP Server"
+    },
+    {
+      "name": "api-to-mcp",
       "url": "http://localhost:3001/mcp",
-      "description": "API-to-MCP wrapper per API del turismo ed eventi"
+      "description": "API Emilia Romagna Turismo"
+    },
+    {
+      "name": "mcp-server-chart",
+      "url": "http://localhost:1122/mcp",
+      "description": "Generazione di grafici e chart"
+    },
+    {
+      "name": "basic-server-preact",
+      "url": "http://localhost:3101/mcp",
+      "description": "Basic MCP App Server (Preact)"
+    },
+    {
+      "name": "budget-allocator-server",
+      "url": "http://localhost:3107/mcp",
+      "description": "Budget Allocator Server"
+    },
+    {
+      "name": "map-server",
+      "url": "http://localhost:3112/mcp",
+      "description": "CesiumJS Map Server"
     }
   ]
 }

@@ -1,4 +1,4 @@
-"""Stub package per il server MCP 'api_to_mcp'.
+"""Stub package per il server MCP 'api-to-mcp'.
 
 Generato automaticamente da scripts/generate_tool_files.py.
 Importa e ri-esporta tutti i tool del server.

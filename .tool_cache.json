@@ -1,194 +1,467 @@
 {
   "version": "1.0",
   "tools": {
-    "calculator.add": {
-      "description": "calculator add: Add two numbers together.",
-      "hash": "66d8fc874bad31be2711efff87759d77",
-      "path": "/Users/d065243/code-execution-mcp/servers/calculator/add.py",
-      "server": "calculator",
-      "tool": "add"
-    },
-    "calculator.calculate": {
-      "description": "calculator calculate: Evaluate a mathematical expression.",
-      "hash": "d2f9bc0ec81d0eb3dfb85b6267d0d3b9",
-      "path": "/Users/d065243/code-execution-mcp/servers/calculator/calculate.py",
-      "server": "calculator",
-      "tool": "calculate"
-    },
-    "calculator.multiply": {
-      "description": "calculator multiply: Multiply two numbers.\n\nArgs:\n    a: First number\n    b: Second number\n    \nReturns:\n    Product of a and b",
-      "hash": "ba07871bc270f2928894a5900d53847c",
-      "path": "/Users/d065243/Downloads/AgentKernel/servers/calculator/multiply.py",
-      "server": "calculator",
-      "tool": "multiply"
-    },
-    "database.execute": {
-      "description": "database execute: Execute a SQL statement (INSERT, UPDATE, DELETE) on the database.",
-      "hash": "ac4a9a1cd82daf63cef6abc89dffdc45",
-      "path": "/Users/d065243/code-execution-mcp/servers/database/execute.py",
-      "server": "database",
-      "tool": "execute"
-    },
-    "database.list_tables": {
-      "description": "database list_tables: List all tables in the database.",
-      "hash": "a8c701f0a8f16217afeadc2e32176530",
-      "path": "/Users/d065243/code-execution-mcp/servers/database/list_tables.py",
-      "server": "database",
-      "tool": "list_tables"
-    },
-    "database.query": {
-      "description": "database query: Execute a SQL query on the database.",
-      "hash": "8688535ca550bd65dafb6bec2bd9b53f",
-      "path": "/Users/d065243/code-execution-mcp/servers/database/query.py",
-      "server": "database",
-      "tool": "query"
-    },
-    "filesystem.list_directory": {
-      "description": "filesystem list_directory: List the contents of a directory.",
-      "hash": "e82f96724aa3588dde04c159ab95b9e3",
-      "path": "/Users/d065243/code-execution-mcp/servers/filesystem/list_directory.py",
-      "server": "filesystem",
-      "tool": "list_directory"
-    },
-    "filesystem.read_file": {
-      "description": "filesystem read_file: Read the contents of a file.",
-      "hash": "54759957fac8f025c87b2ff4bb5a3ce5",
-      "path": "/Users/d065243/code-execution-mcp/servers/filesystem/read_file.py",
-      "server": "filesystem",
-      "tool": "read_file"
-    },
-    "filesystem.write_file": {
-      "description": "filesystem write_file: Write content to a file.",
-      "hash": "0bffc7efbef21b1d16707a7965389937",
-      "path": "/Users/d065243/code-execution-mcp/servers/filesystem/write_file.py",
-      "server": "filesystem",
-      "tool": "write_file"
-    },
-    "weather.get_forecast": {
-      "description": "weather get_forecast: Get weather forecast for a location.",
-      "hash": "386fdacac16dd38c691afa3bcf9b2f5d",
-      "path": "/Users/d065243/code-execution-mcp/servers/weather/get_forecast.py",
-      "server": "weather",
-      "tool": "get_forecast"
-    },
-    "weather.get_weather": {
-      "description": "weather get_weather: Get current weather information for a location.",
-      "hash": "cf8d3317811186048b129eb4a95fcd38",
-      "path": "/Users/d065243/code-execution-mcp/servers/weather/get_weather.py",
-      "server": "weather",
-      "tool": "get_weather"
-    },
-    "api_to_mcp.cities_index": {
-      "description": "api_to_mcp cities_index: Chiama cities-index su api_to_mcp.",
-      "hash": "d04542e28799019d7de39d04ac967b38",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/cities_index.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.cities_index": {
+      "description": "api-to-mcp cities_index: Tool 'cities index' su server 'api-to-mcp'. istat prov query",
+      "hash": "f820b90e2d65e4613afb9028df681cf6",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/cities_index.py",
+      "server": "api-to-mcp",
       "tool": "cities_index"
     },
-    "api_to_mcp.events_categories_get": {
-      "description": "api_to_mcp events_categories_get: Chiama events-categories-get su api_to_mcp.",
-      "hash": "169d21981aa0773f1edaef78f1d6b56a",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/events_categories_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.events_categories_get": {
+      "description": "api-to-mcp events_categories_get: Tool 'events categories get' su server 'api-to-mcp'. lang",
+      "hash": "2cbe8f43a5b0946c2149173764d97a64",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/events_categories_get.py",
+      "server": "api-to-mcp",
       "tool": "events_categories_get"
     },
-    "api_to_mcp.events_get": {
-      "description": "api_to_mcp events_get: Chiama events-get su api_to_mcp.",
-      "hash": "ce86792de8a4aa70cbe940af6416c7eb",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/events_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.events_get": {
+      "description": "api-to-mcp events_get: Tool 'events get' su server 'api-to-mcp'. lang date istat city prov theme category page limit updated",
+      "hash": "5cf836c19a5ba2e5b3b87cd233937d0a",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/events_get.py",
+      "server": "api-to-mcp",
       "tool": "events_get"
     },
-    "api_to_mcp.get_status": {
-      "description": "api_to_mcp get_status: Chiama get-status su api_to_mcp.",
-      "hash": "24621bae3756e2deee652cf6bf3dcd3d",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/get_status.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.get_status": {
+      "description": "api-to-mcp get_status: Tool 'get status' su server 'api-to-mcp'.",
+      "hash": "e0106210c4b986b432e72ed56dd86a47",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/get_status.py",
+      "server": "api-to-mcp",
       "tool": "get_status"
     },
-    "api_to_mcp.iat_get": {
-      "description": "api_to_mcp iat_get: Chiama iat-get su api_to_mcp.",
-      "hash": "9541fddc85152e7c95adfc05d0bc7962",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/iat_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.iat_get": {
+      "description": "api-to-mcp iat_get: Tool 'iat get' su server 'api-to-mcp'. istat prov limit page updated",
+      "hash": "7e7bf74c4aecf2330cb83c8c0098b93d",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/iat_get.py",
+      "server": "api-to-mcp",
       "tool": "iat_get"
     },
-    "api_to_mcp.images_get": {
-      "description": "api_to_mcp images_get: Chiama images-get su api_to_mcp.",
-      "hash": "3374d3cbf805328fd9dfdd0bf8486a72",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/images_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.images_get": {
+      "description": "api-to-mcp images_get: Tool 'images get' su server 'api-to-mcp'. limit page",
+      "hash": "d8f5367f5c2c47ea806cfde34056d39c",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/images_get.py",
+      "server": "api-to-mcp",
       "tool": "images_get"
     },
-    "api_to_mcp.interests_get": {
-      "description": "api_to_mcp interests_get: Chiama interests-get su api_to_mcp.",
-      "hash": "fd36535ad094322919e02cb537be6082",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/interests_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.interests_get": {
+      "description": "api-to-mcp interests_get: Tool 'interests get' su server 'api-to-mcp'. lang istat prov limit page updated",
+      "hash": "8db4c117c7788fbee32648e0f90030ab",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/interests_get.py",
+      "server": "api-to-mcp",
       "tool": "interests_get"
     },
-    "api_to_mcp.itineraries_get": {
-      "description": "api_to_mcp itineraries_get: Chiama itineraries-get su api_to_mcp.",
-      "hash": "3163341468ac598dd941ec5974a20533",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/itineraries_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.itineraries_get": {
+      "description": "api-to-mcp itineraries_get: Tool 'itineraries get' su server 'api-to-mcp'. time target theme prov comune lang limit page updated",
+      "hash": "1d248ea58a1f795c18c8612de161413d",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/itineraries_get.py",
+      "server": "api-to-mcp",
       "tool": "itineraries_get"
     },
-    "api_to_mcp.languages_get": {
-      "description": "api_to_mcp languages_get: Chiama languages-get su api_to_mcp.",
-      "hash": "081578c21d32733864f48406b70a4b43",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/languages_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.languages_get": {
+      "description": "api-to-mcp languages_get: Tool 'languages get' su server 'api-to-mcp'.",
+      "hash": "7c2f9984e767739401abd2a150a7ef41",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/languages_get.py",
+      "server": "api-to-mcp",
       "tool": "languages_get"
     },
-    "api_to_mcp.localities_get": {
-      "description": "api_to_mcp localities_get: Chiama localities-get su api_to_mcp.",
-      "hash": "cefa7a8cbe5a5bf98d08cf2a34f3a345",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/localities_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.localities_get": {
+      "description": "api-to-mcp localities_get: Tool 'localities get' su server 'api-to-mcp'. lang istat prov limit page updated query",
+      "hash": "43f0c65b107c84ca9b54733976d8373d",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/localities_get.py",
+      "server": "api-to-mcp",
       "tool": "localities_get"
     },
-    "api_to_mcp.news_get": {
-      "description": "api_to_mcp news_get: Chiama news-get su api_to_mcp.",
-      "hash": "7c7028a4e32bb417b5c022c0d9ce66ea",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/news_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.news_get": {
+      "description": "api-to-mcp news_get: Tool 'news get' su server 'api-to-mcp'. lang limit page",
+      "hash": "79f50c15df89fdce76decc7acc4d18d9",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/news_get.py",
+      "server": "api-to-mcp",
       "tool": "news_get"
     },
-    "api_to_mcp.poi_list_get": {
-      "description": "api_to_mcp poi_list_get: Chiama poi-list-get su api_to_mcp.",
-      "hash": "46baf49af1ab3a876f1bf427f1b77c09",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/poi_list_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.poi_list_get": {
+      "description": "api-to-mcp poi_list_get: Tool 'poi list get' su server 'api-to-mcp'. limit page updated",
+      "hash": "d55ffd03fdd3fd627867955edd78b768",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/poi_list_get.py",
+      "server": "api-to-mcp",
       "tool": "poi_list_get"
     },
-    "api_to_mcp.poi_single_get": {
-      "description": "api_to_mcp poi_single_get: Chiama poi-single-get su api_to_mcp.",
-      "hash": "7d55e1f1bffbc903861953b26fed1930",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/poi_single_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.poi_single_get": {
+      "description": "api-to-mcp poi_single_get: Tool 'poi single get' su server 'api-to-mcp'. code istat prov limit page updated",
+      "hash": "47bfde8a8282f0ff901e7816da912297",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/poi_single_get.py",
+      "server": "api-to-mcp",
       "tool": "poi_single_get"
     },
-    "api_to_mcp.target_get": {
-      "description": "api_to_mcp target_get: Chiama target-get su api_to_mcp.",
-      "hash": "14ec98a442f85b4073b3b624d07e0809",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/target_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.target_get": {
+      "description": "api-to-mcp target_get: Tool 'target get' su server 'api-to-mcp'. lang",
+      "hash": "1ef1206f264ac5bad4d33d425c094226",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/target_get.py",
+      "server": "api-to-mcp",
       "tool": "target_get"
     },
-    "api_to_mcp.thems_get": {
-      "description": "api_to_mcp thems_get: Chiama thems-get su api_to_mcp.",
-      "hash": "c0a8e0f2bcdae499e14adff661a2f40c",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/thems_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.thems_get": {
+      "description": "api-to-mcp thems_get: Tool 'thems get' su server 'api-to-mcp'. lang",
+      "hash": "c736660a1a476efaad0f24b51c85db73",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/thems_get.py",
+      "server": "api-to-mcp",
       "tool": "thems_get"
     },
-    "api_to_mcp.webcam_get": {
-      "description": "api_to_mcp webcam_get: Chiama webcam-get su api_to_mcp.",
-      "hash": "1905d19e14ad6810fc80225daa7a5802",
-      "path": "/Users/M.Albari/projects/mcpruntime/servers/api_to_mcp/webcam_get.py",
-      "server": "api_to_mcp",
+    "api-to-mcp.webcam_get": {
+      "description": "api-to-mcp webcam_get: Tool 'webcam get' su server 'api-to-mcp'. city prov page limit",
+      "hash": "c8162623b66bd5adc6ef810795721f74",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/api-to-mcp/webcam_get.py",
+      "server": "api-to-mcp",
       "tool": "webcam_get"
+    },
+    "basic-server-preact.get_time": {
+      "description": "basic-server-preact get_time: Returns the current server time as an ISO 8601 string.",
+      "hash": "eaf797179432d1c99e4cf6f1d3ea23f9",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/basic-server-preact/get_time.py",
+      "server": "basic-server-preact",
+      "tool": "get_time"
+    },
+    "budget-allocator-server.get_budget_data": {
+      "description": "budget-allocator-server get_budget_data: Returns budget configuration with 24 months of historical allocations and industry benchmarks by company stage",
+      "hash": "cb78a8af35210312cbeb1d39463ab1e3",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/budget-allocator-server/get_budget_data.py",
+      "server": "budget-allocator-server",
+      "tool": "get_budget_data"
+    },
+    "dbhub-server.execute_sql": {
+      "description": "dbhub-server execute_sql: Execute SQL queries on the postgres database sql",
+      "hash": "518bbe13f1d9834226400200e5d5aaa4",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/dbhub-server/execute_sql.py",
+      "server": "dbhub-server",
+      "tool": "execute_sql"
+    },
+    "dbhub-server.search_objects": {
+      "description": "dbhub-server search_objects: Search and list database objects (schemas, tables, columns, procedures, indexes) on the postgres database object_type pattern schema table detail_level limit",
+      "hash": "dd4f37bfcda8e271a12e142fe050246c",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/dbhub-server/search_objects.py",
+      "server": "dbhub-server",
+      "tool": "search_objects"
+    },
+    "lightrag-server.check_lightrag_health": {
+      "description": "lightrag-server check_lightrag_health: Check LightRAG API status",
+      "hash": "c4b620b1c87b7a0239fd73fff60ec10c",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/check_lightrag_health.py",
+      "server": "lightrag-server",
+      "tool": "check_lightrag_health"
+    },
+    "lightrag-server.create_entities": {
+      "description": "lightrag-server create_entities: Create multiple entities in knowledge graph entities",
+      "hash": "534682fc090f1d42e92df8cdd003a9dd",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/create_entities.py",
+      "server": "lightrag-server",
+      "tool": "create_entities"
+    },
+    "lightrag-server.create_relations": {
+      "description": "lightrag-server create_relations: Create multiple relationships between entities in knowledge graph relations",
+      "hash": "dcd6e25abfdd442d103370fc4ca4513c",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/create_relations.py",
+      "server": "lightrag-server",
+      "tool": "create_relations"
+    },
+    "lightrag-server.delete_by_doc_ids": {
+      "description": "lightrag-server delete_by_doc_ids: Delete all entities and relationships associated with multiple documents doc_ids",
+      "hash": "73fa55a356f3323f3983dbf776197d74",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/delete_by_doc_ids.py",
+      "server": "lightrag-server",
+      "tool": "delete_by_doc_ids"
+    },
+    "lightrag-server.delete_by_entities": {
+      "description": "lightrag-server delete_by_entities: Delete multiple entities from knowledge graph by name entity_names",
+      "hash": "58f5e7cb9d8428d90a39ff83b805ee55",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/delete_by_entities.py",
+      "server": "lightrag-server",
+      "tool": "delete_by_entities"
+    },
+    "lightrag-server.edit_entities": {
+      "description": "lightrag-server edit_entities: Edit multiple existing entities in knowledge graph entities",
+      "hash": "dbb7a75a73342ff467fdf3e3ac737237",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/edit_entities.py",
+      "server": "lightrag-server",
+      "tool": "edit_entities"
+    },
+    "lightrag-server.edit_relations": {
+      "description": "lightrag-server edit_relations: Edit multiple relationships between entities in knowledge graph relations",
+      "hash": "be1be96c851a0600f9bab7c34825b0b2",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/edit_relations.py",
+      "server": "lightrag-server",
+      "tool": "edit_relations"
+    },
+    "lightrag-server.get_documents": {
+      "description": "lightrag-server get_documents: Get list of all uploaded documents",
+      "hash": "aa8ee979e919b0b673d7eb0d276bf2d1",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/get_documents.py",
+      "server": "lightrag-server",
+      "tool": "get_documents"
+    },
+    "lightrag-server.get_graph_labels": {
+      "description": "lightrag-server get_graph_labels: Get labels (node and relationship types) from knowledge graph",
+      "hash": "5c3e364a1cbff8224136e633d31d3162",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/get_graph_labels.py",
+      "server": "lightrag-server",
+      "tool": "get_graph_labels"
+    },
+    "lightrag-server.get_pipeline_status": {
+      "description": "lightrag-server get_pipeline_status: Get status of document processing in pipeline",
+      "hash": "fbc6ccbf1c70c8b0e2d28b427db2e751",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/get_pipeline_status.py",
+      "server": "lightrag-server",
+      "tool": "get_pipeline_status"
+    },
+    "lightrag-server.insert_batch": {
+      "description": "lightrag-server insert_batch: Add batch of documents from directory to LightRAG directory_path recursive depth include_only ignore_files ignore_directories",
+      "hash": "a4c6f2eda8d9f3f2b5e6dbb0e5931099",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/insert_batch.py",
+      "server": "lightrag-server",
+      "tool": "insert_batch"
+    },
+    "lightrag-server.insert_document": {
+      "description": "lightrag-server insert_document: Add text directly to LightRAG storage text",
+      "hash": "9fbff89f681d57bbf96fe9c105c664db",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/insert_document.py",
+      "server": "lightrag-server",
+      "tool": "insert_document"
+    },
+    "lightrag-server.insert_file": {
+      "description": "lightrag-server insert_file: Add document from file to LightRAG file_path",
+      "hash": "4ba7daae655ea14a4151e8a274d0eec0",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/insert_file.py",
+      "server": "lightrag-server",
+      "tool": "insert_file"
+    },
+    "lightrag-server.merge_entities": {
+      "description": "lightrag-server merge_entities: Merge multiple entities into one with relationship migration source_entities target_entity merge_strategy",
+      "hash": "f5e43dc77d2e9e5832f75933fd556fd7",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/merge_entities.py",
+      "server": "lightrag-server",
+      "tool": "merge_entities"
+    },
+    "lightrag-server.query_document": {
+      "description": "lightrag-server query_document: Execute a query to documents through LightRAG API query mode top_k only_need_context only_need_prompt response_type max_token_for_text_unit max_token_for_global_context max_token_for_local_context hl_keywords ll_keywords history_turns",
+      "hash": "99553fe026d79658844dff6090193e50",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/query_document.py",
+      "server": "lightrag-server",
+      "tool": "query_document"
+    },
+    "lightrag-server.scan_for_new_documents": {
+      "description": "lightrag-server scan_for_new_documents: Start scanning LightRAG /inputs directory for new documents",
+      "hash": "adb09fb8e2bcad63c072a44f29265177",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/scan_for_new_documents.py",
+      "server": "lightrag-server",
+      "tool": "scan_for_new_documents"
+    },
+    "lightrag-server.upload_document": {
+      "description": "lightrag-server upload_document: Upload document from file to LightRAG's /inputs directory and start indexing file_path",
+      "hash": "28954355f09ced10e865c4da3e5be0ce",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/lightrag-server/upload_document.py",
+      "server": "lightrag-server",
+      "tool": "upload_document"
+    },
+    "map-server.geocode": {
+      "description": "map-server geocode: Search for places using OpenStreetMap. Returns coordinates and bounding boxes for up to 5 matches. query",
+      "hash": "5b6d0f6ae5eddf726ab704510918d3f8",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/map-server/geocode.py",
+      "server": "map-server",
+      "tool": "geocode"
+    },
+    "map-server.show_map": {
+      "description": "map-server show_map: Display an interactive world map zoomed to a specific bounding box. Use the GeoCode tool to find the bounding box of a location. west south east north label",
+      "hash": "62f1cd9e577d3f9e43dea70478aab6f8",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/map-server/show_map.py",
+      "server": "map-server",
+      "tool": "show_map"
+    },
+    "mcp-server-chart.generate_area_chart": {
+      "description": "mcp-server-chart generate_area_chart: Generate a area chart to show data trends under continuous independent variables and observe the overall data trend, such as, displacement = velocity (average or instantaneous) \u00d7 time: s = v \u00d7 t. If the x-axis is time (t) and the y-axis is velocity (v) at each moment, an area chart allows you to observe the trend of velocity over time and infer the distance traveled by the area's size. data stack style theme width height title axisXTitle axisYTitle",
+      "hash": "723d20a89f5e39e877388ae9367129de",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_area_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_area_chart"
+    },
+    "mcp-server-chart.generate_bar_chart": {
+      "description": "mcp-server-chart generate_bar_chart: Generate a horizontal bar chart to show data for numerical comparisons among different categories, such as, comparing categorical data and for horizontal comparisons. data group stack style theme width height title axisXTitle axisYTitle",
+      "hash": "65fe9f115f8990d2429e8b29072cd391",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_bar_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_bar_chart"
+    },
+    "mcp-server-chart.generate_boxplot_chart": {
+      "description": "mcp-server-chart generate_boxplot_chart: Generate a boxplot chart to show data for statistical summaries among different categories, such as, comparing the distribution of data points across categories. data style theme width height title axisXTitle axisYTitle",
+      "hash": "2b9aacfba1719b766f7bdb650af330cf",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_boxplot_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_boxplot_chart"
+    },
+    "mcp-server-chart.generate_column_chart": {
+      "description": "mcp-server-chart generate_column_chart: Generate a column chart, which are best for comparing categorical data, such as, when values are close, column charts are preferable because our eyes are better at judging height than other visual elements like area or angles. data group stack style theme width height title axisXTitle axisYTitle",
+      "hash": "699cc34cb2f8f130ece20a74976ebed7",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_column_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_column_chart"
+    },
+    "mcp-server-chart.generate_district_map": {
+      "description": "mcp-server-chart generate_district_map: Generates regional distribution maps, which are usually used to show the administrative divisions and coverage of a dataset. It is not suitable for showing the distribution of specific locations, such as urban administrative divisions, GDP distribution maps of provinces and cities across the country, etc. This tool is limited to generating data maps within China. title data width height",
+      "hash": "ddd17badd87ee7146dc8692c1cad5ead",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_district_map.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_district_map"
+    },
+    "mcp-server-chart.generate_dual_axes_chart": {
+      "description": "mcp-server-chart generate_dual_axes_chart: Generate a dual axes chart which is a combination chart that integrates two different chart types, typically combining a bar chart with a line chart to display both the trend and comparison of data, such as, the trend of sales and profit over time. categories series style theme width height title axisXTitle",
+      "hash": "d75db724333199ad5acfca0a6c81f8dd",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_dual_axes_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_dual_axes_chart"
+    },
+    "mcp-server-chart.generate_fishbone_diagram": {
+      "description": "mcp-server-chart generate_fishbone_diagram: Generate a fishbone diagram chart to uses a fish skeleton, like structure to display the causes or effects of a core problem, with the problem as the fish head and the causes/effects as the fish bones. It suits problems that can be split into multiple related factors. data style theme width height",
+      "hash": "1458fbec5627acc0d571ce73275b497a",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_fishbone_diagram.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_fishbone_diagram"
+    },
+    "mcp-server-chart.generate_flow_diagram": {
+      "description": "mcp-server-chart generate_flow_diagram: Generate a flow diagram chart to show the steps and decision points of a process or system, such as, scenarios requiring linear process presentation. data style theme width height",
+      "hash": "bdfb298307646470c288cea62ccd47db",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_flow_diagram.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_flow_diagram"
+    },
+    "mcp-server-chart.generate_funnel_chart": {
+      "description": "mcp-server-chart generate_funnel_chart: Generate a funnel chart to visualize the progressive reduction of data as it passes through stages, such as, the conversion rates of users from visiting a website to completing a purchase. data style theme width height title",
+      "hash": "6422428dc6e79b8ecb0ab32fb9f0c523",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_funnel_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_funnel_chart"
+    },
+    "mcp-server-chart.generate_histogram_chart": {
+      "description": "mcp-server-chart generate_histogram_chart: Generate a histogram chart to show the frequency of data points within a certain range. It can observe data distribution, such as, normal and skewed distributions, and identify data concentration areas and extreme points. data binNumber style theme width height title axisXTitle axisYTitle",
+      "hash": "f83055a28a9a1d784e18dda4c8bceb3b",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_histogram_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_histogram_chart"
+    },
+    "mcp-server-chart.generate_line_chart": {
+      "description": "mcp-server-chart generate_line_chart: Generate a line chart to show trends over time, such as, the ratio of Apple computer sales to Apple's profits changed from 2000 to 2016. data style theme width height title axisXTitle axisYTitle",
+      "hash": "7391124cf1189048bd5e12f9470d7c56",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_line_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_line_chart"
+    },
+    "mcp-server-chart.generate_liquid_chart": {
+      "description": "mcp-server-chart generate_liquid_chart: Generate a liquid chart to visualize a single value as a percentage, such as, the current occupancy rate of a reservoir or the completion percentage of a project. percent shape style theme width height title",
+      "hash": "bf80e0d571fd946dec89c5cc64a8c8ee",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_liquid_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_liquid_chart"
+    },
+    "mcp-server-chart.generate_mind_map": {
+      "description": "mcp-server-chart generate_mind_map: Generate a mind map chart to organizes and presents information in a hierarchical structure with branches radiating from a central topic, such as, a diagram showing the relationship between a main topic and its subtopics. data style theme width height",
+      "hash": "811ab73d73a9236c2056f6fbaf6c08cc",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_mind_map.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_mind_map"
+    },
+    "mcp-server-chart.generate_network_graph": {
+      "description": "mcp-server-chart generate_network_graph: Generate a network graph chart to show relationships (edges) between entities (nodes), such as, relationships between people in social networks. data style theme width height",
+      "hash": "161d2538159534c73b71a555c3d14acf",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_network_graph.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_network_graph"
+    },
+    "mcp-server-chart.generate_organization_chart": {
+      "description": "mcp-server-chart generate_organization_chart: Generate an organization chart to visualize the hierarchical structure of an organization, such as, a diagram showing the relationship between a CEO and their direct reports. data orient style theme width height",
+      "hash": "7e06497b6c62be5c2a87d07ff55496cb",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_organization_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_organization_chart"
+    },
+    "mcp-server-chart.generate_path_map": {
+      "description": "mcp-server-chart generate_path_map: Generate a route map to display the user's planned route, such as travel guide routes. title data width height",
+      "hash": "ca0ff3f6062803ddae8a588c9fe50fb2",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_path_map.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_path_map"
+    },
+    "mcp-server-chart.generate_pie_chart": {
+      "description": "mcp-server-chart generate_pie_chart: Generate a pie chart to show the proportion of parts, such as, market share and budget allocation. data innerRadius style theme width height title",
+      "hash": "bf075c2659bd0af11fb84ecebf0cf608",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_pie_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_pie_chart"
+    },
+    "mcp-server-chart.generate_pin_map": {
+      "description": "mcp-server-chart generate_pin_map: Generate a point map to display the location and distribution of point data on the map, such as the location distribution of attractions, hospitals, supermarkets, etc. title data markerPopup width height",
+      "hash": "985a365f8c38be40b973a53185479b43",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_pin_map.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_pin_map"
+    },
+    "mcp-server-chart.generate_radar_chart": {
+      "description": "mcp-server-chart generate_radar_chart: Generate a radar chart to display multidimensional data (four dimensions or more), such as, evaluate Huawei and Apple phones in terms of five dimensions: ease of use, functionality, camera, benchmark scores, and battery life. data style theme width height title",
+      "hash": "1fa7f7f828974d8edb4327eba3af7514",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_radar_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_radar_chart"
+    },
+    "mcp-server-chart.generate_sankey_chart": {
+      "description": "mcp-server-chart generate_sankey_chart: Generate a sankey chart to visualize the flow of data between different stages or categories, such as, the user journey from landing on a page to completing a purchase. data nodeAlign style theme width height title",
+      "hash": "2813f04a925b23a315d4f4384ad370fd",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_sankey_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_sankey_chart"
+    },
+    "mcp-server-chart.generate_scatter_chart": {
+      "description": "mcp-server-chart generate_scatter_chart: Generate a scatter chart to show the relationship between two variables, helps discover their relationship or trends, such as, the strength of correlation, data distribution patterns. data style theme width height title axisXTitle axisYTitle",
+      "hash": "e59062bb26db323524c23ccc4ef72585",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_scatter_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_scatter_chart"
+    },
+    "mcp-server-chart.generate_spreadsheet": {
+      "description": "mcp-server-chart generate_spreadsheet: Generate a spreadsheet or pivot table for displaying tabular data. When 'rows' or 'values' fields are provided, it renders as a pivot table (cross-tabulation); otherwise, it renders as a regular table. Useful for displaying structured data, comparing values across categories, and creating data summaries. data rows columns values theme width height",
+      "hash": "ade9d4817bdfa8093249b0534729df66",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_spreadsheet.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_spreadsheet"
+    },
+    "mcp-server-chart.generate_treemap_chart": {
+      "description": "mcp-server-chart generate_treemap_chart: Generate a treemap chart to display hierarchical data and can intuitively show comparisons between items at the same level, such as, show disk space usage with treemap. data style theme width height title",
+      "hash": "77829fdc20a28e50bfb94ec4e19c555a",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_treemap_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_treemap_chart"
+    },
+    "mcp-server-chart.generate_venn_chart": {
+      "description": "mcp-server-chart generate_venn_chart: Generate a Venn diagram to visualize the relationships between different sets, showing how they intersect and overlap, such as the commonalities and differences between various groups. data style theme width height title",
+      "hash": "7afabe386cc01fb00f725f13ab947711",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_venn_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_venn_chart"
+    },
+    "mcp-server-chart.generate_violin_chart": {
+      "description": "mcp-server-chart generate_violin_chart: Generate a violin chart to show data for statistical summaries among different categories, such as, comparing the distribution of data points across categories. data style theme width height title axisXTitle axisYTitle",
+      "hash": "4d77a5d2e80a372c2b1428cba6b8f554",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_violin_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_violin_chart"
+    },
+    "mcp-server-chart.generate_waterfall_chart": {
+      "description": "mcp-server-chart generate_waterfall_chart: Generate a waterfall chart to visualize the cumulative effect of sequentially introduced positive or negative values, such as showing how an initial value is affected by a series of intermediate positive or negative values leading to a final result. Waterfall charts are ideal for financial analysis, budget tracking, profit and loss statements, and understanding the composition of changes over time or categories. data style theme width height title axisXTitle axisYTitle",
+      "hash": "1b5d85a716dc897f72963796aaece51b",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_waterfall_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_waterfall_chart"
+    },
+    "mcp-server-chart.generate_word_cloud_chart": {
+      "description": "mcp-server-chart generate_word_cloud_chart: Generate a word cloud chart to show word frequency or weight through text size variation, such as, analyzing common words in social media, reviews, or feedback. data style theme width height title",
+      "hash": "98e816e350a946cd987dfa1cda03b292",
+      "path": "/Users/M.Albari/projects/mcpruntime/servers/mcp-server-chart/generate_word_cloud_chart.py",
+      "server": "mcp-server-chart",
+      "tool": "generate_word_cloud_chart"
     }
   }
 }

@@ -111,12 +111,38 @@ def _build_stub_source(
         + "}"
     )
 
+    # Costruisci docstring arricchita con constraints dello schema
+    # (usata da extract_tool_description per il semantic search)
+    param_docs: list[str] = []
+    for pname, prop in props.items():
+        parts = []
+        if prop.get("description"):
+            parts.append(prop["description"])
+        constraints = []
+        if "enum" in prop:
+            constraints.append(f"values: {prop['enum']}")
+        if "maxLength" in prop:
+            constraints.append(f"maxLength={prop['maxLength']}")
+        if "minimum" in prop or "maximum" in prop:
+            bounds = "-".join(str(prop[x]) for x in ("minimum", "maximum") if x in prop)
+            constraints.append(f"range={bounds}")
+        if constraints:
+            parts.append(f"({', '.join(constraints)})")
+        if parts:
+            param_docs.append(f"{pname}: {' '.join(parts)}")
+
+    # Primo termine: nome tool come frase leggibile (usato da embed)
+    tool_label = tool_name.replace("-", " ").replace("_", " ")
+    rich_desc = description or f"Tool '{tool_label}' su server '{server_name}'."
+    if param_docs:
+        rich_desc += "\n\nParametri:\n" + "\n".join(f"  - {d}" for d in param_docs)
+
     typing_imports = "from typing import Any, Optional" if has_optional else "from typing import Any"
 
     return f'''\
 """Stub per il tool MCP '{tool_name}' su server '{server_name}'.
 
-{description or f"Chiama il tool '{tool_name}' sul server MCP '{server_name}'."}
+{rich_desc}
 
 Generato automaticamente da scripts/generate_tool_files.py — non modificare.
 Riferimento: https://www.anthropic.com/engineering/code-execution-with-mcp
@@ -126,7 +152,7 @@ from client.mcp_client import call_mcp_tool
 
 
 def {safe_name}({params_str}) -> Any:
-    """{description or f"Chiama {tool_name} su {server_name}."}"""
+    """{rich_desc.splitlines()[0]}"""
     return call_mcp_tool(
         "{server_name}",
         "{tool_name}",
