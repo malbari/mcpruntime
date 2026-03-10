@@ -3,7 +3,8 @@
     {
       "name": "lightrag-server",
       "url": "http://localhost:8092/mcp",
-      "description": "Documenti pubblici di ASST Lariana via LightRAG"
+      "description": "Documenti pubblici di ASST Lariana via LightRAG",
+      "tool_whitelist": ["query_document"]
     },
     {
       "name": "dbhub-server",
@@ -13,7 +14,8 @@
     {
       "name": "api-to-mcp",
       "url": "http://localhost:3001/mcp",
-      "description": "API Emilia Romagna Turismo"
+      "description": "API Emilia Romagna Turismo",
+      "tool_whitelist": ["news_get"]
     },
     {
       "name": "mcp-server-chart",

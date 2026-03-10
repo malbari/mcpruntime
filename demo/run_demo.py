@@ -598,6 +598,36 @@ async def startup() -> AppState:
     tool_count = sum(len(t) for t in discovered_tools.values())
     logger.info("[Startup 4/5] %d tool scoperti in %d server", tool_count, len(discovered_tools))
 
+    # ── 4b. Applica whitelist/blacklist da servers.json ───────────────────
+    # Ogni server può avere "tool_whitelist" (solo questi tool sono visibili)
+    # oppure "tool_blacklist" (tutti tranne questi). Se entrambi assenti, tutti
+    # i tool sono visibili. La whitelist ha precedenza sulla blacklist.
+    _tool_filters: dict[str, dict] = {
+        srv["name"]: srv
+        for srv in SERVERS_CONFIG
+        if "tool_whitelist" in srv or "tool_blacklist" in srv
+    }
+    if _tool_filters:
+        for srv_name, srv_cfg in _tool_filters.items():
+            if srv_name not in discovered_tools:
+                continue
+            all_tools = list(discovered_tools[srv_name])
+            whitelist = srv_cfg.get("tool_whitelist")
+            blacklist = srv_cfg.get("tool_blacklist", [])
+            if whitelist is not None:
+                filtered = [t for t in all_tools if t in whitelist]
+                removed  = [t for t in all_tools if t not in whitelist]
+                mode = "whitelist"
+            else:
+                filtered = [t for t in all_tools if t not in blacklist]
+                removed  = [t for t in all_tools if t in blacklist]
+                mode = "blacklist"
+            discovered_tools[srv_name] = filtered
+            logger.info(
+                "[Startup] Filtro %s '%s': %d tool visibili %s, %d rimossi %s",
+                mode, srv_name, len(filtered), filtered, len(removed), removed,
+            )
+
     # ── 5. Workspace upload (una sola volta) ──────────────────────────────
     # Carica stub e client proxy nel container OpenSandbox.
     # I file restano su disco del container finché è in esecuzione: non serve
