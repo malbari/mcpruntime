@@ -47,24 +47,30 @@ chiaramente separate.
      Ricerca semantica (embeddings) sul catalogo cachato per trovare il tool
      più rilevante per il prompt dell'utente.
 
-  2. Sample MCP call
-     Chiama il tool scelto con argomenti vuoti per ottenere la struttura reale
-     della risposta. Usata dal LLM come schema concreto per generare codice
-     che naviga correttamente i campi (evita allucinazioni sulla struttura dati).
+  2. Build tool info
+     Raccoglie la lista dei tool selezionati (nome, server, descrizione) per
+     passarla a LLM #2 come elenco di tool disponibili nel container.
 
-  3. Code generation (LLM)
-     Il CodeGenerator produce codice Python personalizzato per il prompt,
-     informato dalla firma dello stub e dalla risposta campione.
+  3. Code generation — LLM #1  (orchestratore)
+     Il CodeGenerator produce codice orchestratore con schema fisso:
+       a. Chiama il tool MCP principale → risposta reale a runtime
+       b. Chiama ask_llm() via proxy → LLM #2 vede i dati reali + tool
+       c. exec() il codice restituito da LLM #2 nel kernel del container
+     LLM #1 deve solo dedurre i parametri corretti della chiamata al tool.
 
   4. Kernel reset
      DELETE /code/contexts — azzera lo stato Jupyter nel container prima di
      ogni esecuzione. Garantisce isolamento tra richieste successive e previene
      che moduli cachati da una richiesta precedente inquinino quella attuale.
 
-  5. Esecuzione nel container
-     POST /code — invia il codice generato a execd (NDJSON streaming).
-     Il codice importa i tool da /workspace/servers/<server>/<tool>.py e
-     chiama il proxy per le chiamate MCP reali.
+  5. Esecuzione nel container  (flusso in due stadi)
+     POST /code — invia il codice orchestratore a execd (NDJSON streaming).
+     All'interno del container:
+       • Il codice chiama il tool MCP via proxy /call-tool → dati reali
+       • Chiama ask_llm() via proxy /ask-llm → LLM #2 genera display code
+       • exec(display_code, globals()) → stampa l'output formattato
+     Il campione MCP non viene più prelevato dall'host: LLM #2 vede i dati
+     reali a runtime, eliminando un roundtrip host↔MCP per ogni richiesta.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   NOTE PER AMBIENTI MULTI-UTENTE
@@ -176,13 +182,22 @@ class _ProxyHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if self.path == "/call-tool":
+            self._handle_call_tool(body)
+        elif self.path == "/ask-llm":
+            self._handle_ask_llm(body)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def _handle_call_tool(self, body: bytes) -> None:
         try:
             p = json.loads(body)
             server_name = p.get("server", "")
             server_url  = self._servers.get(server_name)
             if not server_url:
                 raise ValueError(f"Server MCP sconosciuto: {server_name!r}")
-            logger.info(f"[Proxy] → {server_name}/{p['tool']}({json.dumps(p.get('args',{}))[:80]})")
+            logger.info(f"[Sandbox → Proxy] call-tool: {server_name}/{p['tool']}({json.dumps(p.get('args',{}))[:80]})")
             loop = asyncio.new_event_loop()
             try:
                 result = loop.run_until_complete(_mcp_call(p["tool"], p.get("args", {}), server_url))
@@ -191,7 +206,7 @@ class _ProxyHandler(BaseHTTPRequestHandler):
             _preview = str(result)
             if len(_preview) > 200:
                 _preview = _preview[:200] + "..."
-            logger.info(f"[Proxy] ← MCP: {_preview}")
+            logger.info(f"[Proxy → Sandbox] MCP response: {_preview}")
             resp = json.dumps(result, ensure_ascii=False).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -199,8 +214,85 @@ class _ProxyHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(resp)
         except Exception as exc:
-            logger.error(f"[Proxy] Errore: {exc}")
+            logger.error(f"[Proxy] Errore call-tool: {exc}")
             err = json.dumps({"error": str(exc)}).encode()
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(err)))
+            self.end_headers()
+            self.wfile.write(err)
+
+    def _handle_ask_llm(self, body: bytes) -> None:
+        """Riceve {user_prompt, response_data, available_tools} dal container,
+        chiama LLM #2 per generare codice di display e risponde {code: str}."""
+        try:
+            import litellm
+            p = json.loads(body)
+            user_prompt     = p.get("user_prompt", "")
+            response_data   = p.get("response_data", "")
+            available_tools = p.get("available_tools", "[]")
+
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Sei un generatore di codice Python. "
+                        "Rispondi SOLO con codice eseguibile, senza markdown, senza spiegazioni."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Prompt utente originale: {user_prompt}\n\n"
+                        f"Dati ottenuti dal tool MCP "
+                        f"(variabile `response` già in scope come dict Python):\n"
+                        f"{response_data}\n\n"
+                        f"Tool MCP disponibili (puoi chiamarne altri se necessario):\n"
+                        f"{available_tools}\n\n"
+                        "Per chiamare un tool aggiuntivo:\n"
+                        "    from client.mcp_client import call_mcp_tool\n"
+                        "    result = call_mcp_tool(server_name, tool_name, {'param': value})\n\n"
+                        "Scrivi codice Python che:\n"
+                        "1. Usa `response` (già in scope) per estrarre i dati\n"
+                        "2. Stampa i risultati in modo leggibile, rispondendo al prompt\n"
+                        "   NOTA: rispetta l'ordine dei dati restituito dal server MCP, "
+                        "NON aggiungere ordinamenti (es. sorted()) arbitrari.\n"
+                        "3. Chiama altri tool (dall'elenco) solo se necessario\n"
+                        "Regole: non ridefinire `response`; json è già importato."
+                    ),
+                },
+            ]
+
+            llm_resp = litellm.completion(
+                model=f"azure/{os.environ.get('AZURE_OPENAI_DEPLOYMENT', 'gpt-4.1')}",
+                messages=messages,
+                api_base=os.environ.get("AZURE_OPENAI_ENDPOINT"),
+                api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
+                max_tokens=2048,
+            )
+            code_raw = llm_resp.choices[0].message.content or ""
+            # Strip markdown fences if present
+            for pfx in ("```python\n", "```python", "```\n", "```"):
+                if code_raw.startswith(pfx):
+                    code_raw = code_raw[len(pfx):]
+                    break
+            if code_raw.endswith("```"):
+                code_raw = code_raw[:-3]
+            code = code_raw.strip()
+            logger.info(
+                "[Proxy → Sandbox] LLM #2 codice generato (%d chars) — verrà exec() in sandbox:\n%s",
+                len(code), code,
+            )
+
+            resp = json.dumps({"code": code}, ensure_ascii=False).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(resp)))
+            self.end_headers()
+            self.wfile.write(resp)
+        except Exception as exc:
+            logger.error("[Proxy] Errore ask-llm: %s", exc)
+            err = json.dumps({"error": str(exc), "code": ""}).encode()
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(err)))
@@ -236,7 +328,7 @@ def _start_proxy(servers_config: list[dict]) -> tuple[socketserver.TCPServer, in
 def _proxy_client_src(port: int, sandbox_host: str) -> str:
     """Sorgente Python di client/mcp_client.py proxy-aware da iniettare nel container."""
     return (
-        '"""call_mcp_tool proxy-aware — iniettato da demo."""\n'
+        '"""call_mcp_tool e ask_llm proxy-aware — iniettato da demo."""\n'
         "import json, urllib.request\nfrom typing import Any\n\n"
         f"_PROXY_PORT = {port}\n"
         f"_SANDBOX_HOST = {sandbox_host!r}\n\n"
@@ -254,6 +346,26 @@ def _proxy_client_src(port: int, sandbox_host: str) -> str:
         "    )\n"
         "    with urllib.request.urlopen(_req, timeout=30) as _r:\n"
         "        return json.loads(_r.read())\n"
+        "\n"
+        "def ask_llm(\n"
+        "    user_prompt: str,\n"
+        "    response_data: str,\n"
+        "    available_tools: str = '[]',\n"
+        ") -> str:\n"
+        "    \"\"\"Chiama LLM #2 tramite il proxy dell'host e restituisce codice Python eseguibile.\"\"\"\n"
+        "    _url = f'http://{_SANDBOX_HOST}:{_PROXY_PORT}/ask-llm'\n"
+        "    _body = json.dumps({\n"
+        "        'user_prompt': user_prompt,\n"
+        "        'response_data': response_data,\n"
+        "        'available_tools': available_tools,\n"
+        "    }).encode()\n"
+        "    _req = urllib.request.Request(\n"
+        "        _url, data=_body,\n"
+        "        headers={'Content-Type': 'application/json'},\n"
+        "        method='POST',\n"
+        "    )\n"
+        "    with urllib.request.urlopen(_req, timeout=60) as _r:\n"
+        "        return json.loads(_r.read()).get('code', '')\n"
     )
 
 
@@ -533,40 +645,74 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
     stub_file = SERVERS_DIR / server_name / f"{tool_safe}.py"
     stub_src = stub_file.read_text(encoding="utf-8")
 
-    m = re.search(r'call_mcp_tool\([^,]+,\s*"([^"]+)"', stub_src)
-    original_tool = m.group(1) if m else tool_safe.replace("_", "-")
+    # ── 2. Build selected tools info for LLM #2 ───────────────────────────
+    # Passa all'LLM #2 (dentro la sandbox) i tool selezionati — non tutti
+    # quelli scoperti — così può scegliere se chiamarne altri (es. chart)
+    # senza essere sovraccaricato da tool irrilevanti.
+    selected_tools_info: list[dict] = []
+    for srv, tool_list in selected.items():
+        for tname in tool_list:
+            sf = SERVERS_DIR / srv / f"{tname}.py"
+            desc = ""
+            if sf.exists():
+                first_lines = sf.read_text(encoding="utf-8").splitlines()
+                # Extract first non-empty docstring content line
+                in_docstring = False
+                for ln in first_lines:
+                    stripped = ln.strip()
+                    if stripped.startswith('"""') and not in_docstring:
+                        in_docstring = True
+                        content = stripped.lstrip('"').strip()
+                        if content:
+                            desc = content[:200]
+                            break
+                    elif in_docstring and stripped:
+                        desc = stripped[:200]
+                        break
+            selected_tools_info.append({"name": tname, "server": srv, "description": desc})
+    selected_tools_json = json.dumps(selected_tools_info, ensure_ascii=False)
+    logger.info("[Request] Tool info per LLM #2: %s", selected_tools_json[:200])
 
-    # ── 2. Sample MCP call ────────────────────────────────────────────────
-    # Chiama il tool con args vuoti per ottenere la struttura reale della
-    # risposta. Il LLM usa questo schema concreto per generare codice che
-    # naviga i campi corretti (evita allucinazioni sulla struttura dati).
-    logger.info("[Request] Sample call: %s/%s", server_name, original_tool)
-    sample = await _mcp_call(original_tool, {}, server_url)
-    sample_json = json.dumps(sample, ensure_ascii=False, indent=2)[:3000]
-    logger.info("[Request] Campione ricevuto: %d chars", len(sample_json))
-
-    # ── 3. Code generation (LLM) ──────────────────────────────────────────
-    # Il CodeGenerator genera codice Python personalizzato per il prompt.
-    # Input: firma dello stub + risposta campione + prompt utente.
-    # Output: codice Python pronto per essere eseguito nel container.
-    logger.info("[Request] Generazione codice via LLM ...")
+    # ── 3. Code generation — LLM #1 genera codice orchestratore ───────────
+    # LLM #1 riceve la firma dello stub e la lista dei tool selezionati.
+    # Genera codice con schema fisso: chiama il tool, passa la risposta reale
+    # ad ask_llm (LLM #2 dal container), ed esegue il codice risultante.
+    # Il campione MCP NON viene più prelevato dall'host: è LLM #2 che vede
+    # i dati reali a runtime dopo che il codice è eseguito nel container.
+    logger.info("[Request] Generazione codice orchestratore via LLM #1 ...")
     code_raw = state.agent.code_generator.generate_from_prompt(
         system_content=(
             "Sei un generatore di codice Python. "
             "Rispondi SOLO con codice eseguibile, senza markdown, senza spiegazioni."
         ),
         user_content=(
-            f"Importa la funzione con:\n"
-            f"  from servers.{server_name}.{tool_safe} import {tool_safe}\n\n"
-            f"Firma della funzione:\n{stub_src}\n\n"
-            f"Campione REALE della risposta (1 risultato):\n{sample_json}\n\n"
+            f"Tool selezionati per rispondere al prompt: {selected_tools_json}\n"
+            f"Tool principale (per ottenere dati): {tool_safe} su server '{server_name}'\n\n"
+            f"Firma dello stub del tool principale:\n{stub_src}\n\n"
             f"Prompt utente: {prompt!r}\n\n"
-            "Scrivi codice che:\n"
-            f"1. Importa {tool_safe} come indicato sopra\n"
-            "2. Chiama la funzione con limit=5 (se esiste), lang='it' se utile\n"
-            "3. Naviga la struttura ESATTA della risposta come nel campione\n"
-            "4. Stampa i risultati numerati, con titolo e testo\n\n"
-            "Regole: non ridefinire la funzione; non reimportare json, re, urllib."
+            "Scrivi ESATTAMENTE questo schema di codice, "
+            "sostituendo SOLO il commento PLACEHOLDER_CALL con la chiamata corretta:\n"
+            "\n"
+            "import json\n"
+            f"from servers.{server_name}.{tool_safe} import {tool_safe}\n"
+            "from client.mcp_client import ask_llm\n"
+            "\n"
+            "response = PLACEHOLDER_CALL  # ← sostituisci con {tool_safe}(...)\n"
+            "\n"
+            "display_code = ask_llm(\n"
+            f"    user_prompt={prompt!r},\n"
+            "    response_data=json.dumps(response, ensure_ascii=False)[:4000],\n"
+            f"    available_tools={selected_tools_json!r},\n"
+            ")\n"
+            "\n"
+            "exec(display_code, globals())\n"
+            "\n"
+            f"Regole:\n"
+            f"- Sostituisci PLACEHOLDER_CALL con la chiamata corretta a {tool_safe}(...)\n"
+            "- Inietta i parametri utili (limit=5 se disponibile, lang='it' se utile)\n"
+            "- Non modificare nessun'altra riga\n"
+            "- Non aggiungere altro codice\n"
+            "- Non reimportare json, urllib, re"
         ),
     )
     if not code_raw:
@@ -599,8 +745,9 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
         "sys.path.insert(0, '/workspace')\n\n"
     ) + code
 
-    logger.info("[Request] Esecuzione nel container (%s) ...", OPENSANDBOX_URL)
+    logger.info("[Sandbox ▶ ENTER] Codice orchestratore → execd (%s)", OPENSANDBOX_URL)
     stdout, stderr = _rest_execute(code_with_preamble, OPENSANDBOX_URL)
+    logger.info("[Sandbox ◀ EXIT]  Esecuzione completata")
 
     if stderr:
         logger.error("[Request] Stderr: %s", stderr)

@@ -64,24 +64,27 @@ avvia la demo.
 │  1. Tool selection                                                  │
 │     Ricerca semantica (embeddings) sul catalogo cachato             │
 │                                                                     │
-│  2. Sample MCP call                                                 │
-│     Chiama il tool con args vuoti → struttura reale della risposta  │
-│     Usata come schema dal LLM per generare codice corretto          │
+│  2. Build tool info                                                 │
+│     Raccoglie nome/server/descrizione dei tool selezionati          │
+│     → passati come JSON a LLM #2 nel container                      │
 │                                                                     │
-│  3. Code generation (LLM)                                           │
-│     CodeGenerator.generate_from_prompt(stub + sample + prompt)     │
-│     → codice Python personalizzato per il prompt                    │
+│  3. Code generation — LLM #1 (orchestratore, sull'host)            │
+│     Genera schema fisso:                                            │
+│       response = tool_call(...)        ← LLM #1 sceglie i param    │
+│       display_code = ask_llm(response_data, available_tools)        │
+│       exec(display_code, globals())                                 │
 │                                                                     │
 │  4. Kernel reset                                                    │
 │     DELETE /code/contexts — azzera stato Jupyter nel container      │
 │     Isola ogni richiesta da quelle precedenti                       │
 │                                                                     │
-│  5. Esecuzione nel container                                        │
+│  5. Esecuzione nel container  (flusso in due stadi)                 │
 │     POST /code → execd (NDJSON streaming)                           │
-│     Il codice importa da /workspace/servers/ e chiama il proxy      │
-│     per le chiamate MCP reali                                       │
+│     a. Codice chiama tool MCP → /call-tool proxy → dati reali       │
+│     b. ask_llm() → /ask-llm proxy → LLM #2 riceve dati + tool list │
+│     c. LLM #2 genera display code → exec() nella stessa sessione   │
 └─────────────────────────────────────────────────────────────────────┘
-                              ↓ stdout del container
+                              ↓ stdout del container (LLM #2 output)
 ```
 
 ---
