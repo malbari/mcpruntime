@@ -140,9 +140,17 @@ ok "Stub aggiornati"
 
 # ── 6. OpenSandbox execd (porta 44772) ───────────────────────────────────
 info "Verifica OpenSandbox execd REST API (porta 44772) ..."
-if ! curl -sf -m 3 -X POST http://127.0.0.1:44772/code \
-       -H 'Content-Type: application/json' \
-       -d '{"context":{"language":"python"},"code":"print(1)"}' > /dev/null 2>&1; then
+_execd_ok=0
+for _i in 1 2 3 4 5; do
+    if curl -sf -m 5 -X POST http://127.0.0.1:44772/code \
+           -H 'Content-Type: application/json' \
+           -d '{"context":{"language":"python"},"code":"print(1)"}' > /dev/null 2>&1; then
+        _execd_ok=1
+        break
+    fi
+    [ "$_i" -lt 5 ] && { info "  execd non ancora pronto (tentativo $_i/5) — attendo 3s ..."; sleep 3; }
+done
+if [ "$_execd_ok" -eq 0 ]; then
     echo ""
     err "OpenSandbox execd NON raggiungibile su porta 44772.
     Avvia il container:

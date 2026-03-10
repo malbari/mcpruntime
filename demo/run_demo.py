@@ -521,6 +521,8 @@ class AppState:
     agent: Any                               # agente MCPRuntime (model + LLM)
     discovered_tools: dict                   # catalogo tool (cachato da disco)
     all_server_names: list[str]              # nomi dei server da servers.json
+    skills_md: str                           # contenuto di demo/SKILLS.md (system prompt)
+    skills_sections: dict[str, str]          # {server_name: testo_sezione} parsato da SKILLS.md
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -606,6 +608,20 @@ async def startup() -> AppState:
     logger.info("Startup completato — pronto a ricevere richieste")
     logger.info("=" * 60)
 
+    _skills_path = _DEMO_DIR / "SKILLS.md"
+    skills_md = _skills_path.read_text(encoding="utf-8") if _skills_path.exists() else ""
+
+    # Parse SKILLS.md in sezioni {server_name: testo_sezione} per la hybrid search
+    import re as _re
+    skills_sections: dict[str, str] = {}
+    if skills_md:
+        for _m in _re.finditer(r'^## (\S+)\n(.*?)(?=^## |\Z)', skills_md, _re.MULTILINE | _re.DOTALL):
+            skills_sections[_m.group(1)] = _m.group(2).strip()
+        logger.info(
+            "[Startup] SKILLS.md caricato: %d sezioni (%s) → entrano nel corpus hybrid search",
+            len(skills_sections), ", ".join(skills_sections),
+        )
+
     return AppState(
         proxy_srv=proxy_srv,
         proxy_port=proxy_port,
@@ -613,6 +629,8 @@ async def startup() -> AppState:
         agent=agent,
         discovered_tools=discovered_tools,
         all_server_names=all_server_names,
+        skills_md=skills_md,
+        skills_sections=skills_sections,
     )
 
 
@@ -630,17 +648,65 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
     Multi-utente: in produzione sostituire il kernel reset globale con
     contesti per-utente (vedi note nel docstring del modulo).
     """
-    # ── 1. Tool selection ─────────────────────────────────────────────────
-    # Ricerca semantica sul catalogo cachato: trova il tool più pertinente
-    # al prompt. Usa embeddings (MPS/CPU) senza rileggere disco o rete.
-    # NOTA: select_tools_for_task chiama asyncio.run() → thread separato.
+    # ── 1. Tool selection — Due corpora separati: tool e skill ───────────────
+    # Opzione B corretta: skill e tool NON competono nello stesso ranking.
+    # Pass-1: hybrid search solo sui tool → selezione normale (news_get vince).
+    # Pass-2: BM25 indipendente solo sulle skill → se un server non compare
+    #         nel pass-1 ma la sua skill è rilevante, tutti i suoi tool
+    #         vengono aggiunti come candidati per LLM #1 (skill anchor).
+    # In questo modo una skill ricca non può mai soffocare uno stub corto.
+
+    # 1a. Descrizioni dei tool (solo tool, senza skill)
+    tool_descriptions = state.agent.tool_selector.get_tool_descriptions(
+        state.agent.fs_helper, state.discovered_tools
+    )
+
+    # 1b. Pass-1: hybrid search sui tool
+    _use_gpu = (
+        getattr(state.agent.optimization_config, "enabled", True)
+        and getattr(state.agent.optimization_config, "gpu_embeddings", True)
+    )
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         loop = asyncio.get_event_loop()
         selected = await loop.run_in_executor(
-            pool, lambda: state.agent.select_tools_for_task(
-                prompt, state.discovered_tools, verbose=False
+            pool, lambda: state.agent.tool_selector.select_tools(
+                prompt, tool_descriptions, use_gpu=_use_gpu
             )
         )
+
+    # 1c. Pass-2: BM25 indipendente sulle skill → skill anchor
+    # Costruisce corpus skill {server: testo} e calcola BM25.
+    # Un server ottiene un anchor solo se bm25 > 0 E non ha già tool selezionati.
+    if state.skills_sections:
+        _skill_servers = list(state.skills_sections.keys())
+        _skill_texts   = [state.skills_sections[s] for s in _skill_servers]
+        _skill_bm25    = state.agent.tool_selector._bm25_scores(prompt, _skill_texts)
+        _skill_anchored: set[str] = set()
+        for _srv, _score in zip(_skill_servers, _skill_bm25):
+            if _score > 0 and _srv not in selected and _srv in state.discovered_tools:
+                _skill_anchored.add(_srv)
+                selected[_srv] = list(state.discovered_tools[_srv])
+                logger.info(
+                    "[Request] Skill anchor: aggiunto server '%s' (bm25=%.3f) — "
+                    "%d tool aggiunti come candidati",
+                    _srv, _score, len(state.discovered_tools[_srv]),
+                )
+    else:
+        _skill_anchored = set()
+
+    # 1d. Costruisce filtered_skills_md con le sole sezioni pertinenti
+    _relevant_servers = set(selected.keys()) | _skill_anchored
+    filtered_skills_md = "\n\n".join(
+        f"## {s}\n{state.skills_sections[s]}"
+        for s in _relevant_servers
+        if s in state.skills_sections
+    )
+    if filtered_skills_md:
+        logger.info(
+            "[Request] Skill sections filtrate per LLM #1: %s",
+            ", ".join(s for s in _relevant_servers if s in state.skills_sections),
+        )
+
     logger.info("[Request] Tool selezionati: %s", selected)
 
     if not selected:
@@ -691,8 +757,10 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
     # Sceglie autonomamente il tool più adatto, costruisce la chiamata,
     # e produce il codice orchestratore con schema fisso.
     logger.info("[Request] Generazione codice orchestratore via LLM #1 ...")
+    _skills_ctx = (filtered_skills_md + "\n\n") if filtered_skills_md else ""
     code_raw = state.agent.code_generator.generate_from_prompt(
         system_content=(
+            f"{_skills_ctx}"
             "Sei un generatore di codice Python. "
             "Rispondi SOLO con codice eseguibile, senza markdown, senza spiegazioni."
         ),
