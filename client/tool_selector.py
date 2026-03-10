@@ -87,6 +87,8 @@ class ToolSelector:
         self.top_k = top_k
         self.use_semantic_search = use_semantic_search and HAS_SENTENCE_TRANSFORMERS
         self._model: Optional[Any] = None
+        # Set to True when select_tools had to use best-match fallback (nothing cleared threshold)
+        self._last_was_fallback: bool = False
 
     def _get_model(self, use_gpu: bool = True) -> Optional[Any]:
         """Lazy load the sentence transformer model (uses shared cache).
@@ -201,12 +203,37 @@ class ToolSelector:
 
         Pure Python implementation — no rank_bm25 or other package required.
         Supports accented Latin characters (Italian, French, Spanish, …).
+        Stopwords (Italian + English) are stripped before scoring to avoid
+        common function words (del, di, per, the, of …) creating false matches.
         """
         import math
         import re
 
+        _STOPWORDS = frozenset({
+            # Italian
+            "il","lo","la","i","gli","le","un","uno","una",
+            "di","del","dello","della","dei","degli","delle",
+            "a","al","allo","alla","ai","agli","alle",
+            "da","dal","dallo","dalla","dai","dagli","dalle",
+            "in","nel","nello","nella","nei","negli","nelle",
+            "su","sul","sullo","sulla","sui","sugli","sulle",
+            "con","per","tra","fra","e","o","ma","se","non",
+            "che","chi","cui","ci","ne","si","mi","ti","lo",
+            "ho","ha","hai","hanno","sono","sei","siamo","siete",
+            "era","era","era","questo","questa","questi","queste",
+            "quello","quella","quelli","quelle","fare","fammi",
+            "breve","una","un","puo","puo","come","dove","quando",
+            # English
+            "the","a","an","of","in","to","and","or","for","with",
+            "on","at","by","is","are","was","were","be","been","from",
+            "this","that","it","as","not","but","if","do","did",
+        })
+
         def tokenize(text: str) -> List[str]:
-            return re.findall(r"[a-zA-ZàèéìíîòóùúÀÈÉÌÍÎÒÓÙÚ0-9]+", text.lower())
+            tokens = re.findall(
+                r"[a-zA-ZàèéìíîòóùúÀÈÉÌÍÎÒÓÙÚ0-9]+", text.lower()
+            )
+            return [t for t in tokens if t not in _STOPWORDS and len(t) > 1]
 
         query_tokens = tokenize(query)
         if not query_tokens:
@@ -241,6 +268,7 @@ class ToolSelector:
         task_description: str,
         tool_descriptions: Dict[Tuple[str, str], str],
         use_gpu: bool = True,
+        threshold_override: Optional[float] = None,
     ) -> Dict[str, List[str]]:
         """Select relevant tools for a task using hybrid BM25 + semantic search.
 
@@ -248,12 +276,18 @@ class ToolSelector:
             task_description: Description of the task to accomplish
             tool_descriptions: Dict mapping (server_name, tool_name) to descriptions
             use_gpu: Whether to use GPU if available (from config)
+            threshold_override: If set, overrides self.similarity_threshold for this call.
+                Use 0.0 when the caller already knows which server to use (skill anchor)
+                so the best-dense tool is always returned without a gate.
 
         Returns:
             Dict mapping server names to lists of selected tool names
         """
         if self.use_semantic_search:
-            return self._hybrid_search_tools(task_description, tool_descriptions, use_gpu=use_gpu)
+            return self._hybrid_search_tools(
+                task_description, tool_descriptions,
+                use_gpu=use_gpu, threshold_override=threshold_override,
+            )
         else:
             return self._keyword_match_tools(task_description, tool_descriptions)
 
@@ -262,6 +296,7 @@ class ToolSelector:
         task_description: str,
         tool_descriptions: Dict[Tuple[str, str], str],
         use_gpu: bool = True,
+        threshold_override: Optional[float] = None,
     ) -> Dict[str, List[str]]:
         """Hybrid BM25 + dense semantic search with Reciprocal Rank Fusion (RRF).
 
@@ -314,11 +349,22 @@ class ToolSelector:
             dense_rank = {i: rank + 1 for rank, i in enumerate(dense_order)}
 
             # ---- Reciprocal Rank Fusion (k = 60) ----
+            # When ALL BM25 scores are 0 (no query token in any description),
+            # the BM25 rank is effectively alphabetical order — meaningless noise
+            # that would bias the RRF result away from the highest-dense tool.
+            # In that case, skip BM25 contribution and rank purely by dense score.
             RRF_K = 60
-            rrf = [
-                1.0 / (RRF_K + bm25_rank[i]) + 1.0 / (RRF_K + dense_rank[i])
-                for i in range(len(tool_keys))
-            ]
+            _any_bm25 = any(b > 0 for b in bm25)
+            if _any_bm25:
+                rrf = [
+                    1.0 / (RRF_K + bm25_rank[i]) + 1.0 / (RRF_K + dense_rank[i])
+                    for i in range(len(tool_keys))
+                ]
+            else:
+                rrf = [
+                    1.0 / (RRF_K + dense_rank[i])
+                    for i in range(len(tool_keys))
+                ]
             ranked = sorted(range(len(rrf)), key=lambda i: -rrf[i])
 
             # ---- Log top-5 for diagnostics ----
@@ -337,10 +383,11 @@ class ToolSelector:
             # OR BM25 has a positive hit (query keyword literally in description).
             # This prevents pure-dense threshold from discarding lexically obvious
             # matches (e.g. "news" in prompt → news_get with bm25=3.5 but low cosine).
+            _threshold = threshold_override if threshold_override is not None else self.similarity_threshold
             top_k = min(self.top_k, len(ranked))
             selected_tools: Dict[str, List[str]] = {}
             for idx in ranked[:top_k]:
-                if sims[idx] >= self.similarity_threshold or bm25[idx] > 0:
+                if sims[idx] >= _threshold or bm25[idx] > 0:
                     srv, tname = tool_keys[idx]
                     selected_tools.setdefault(srv, []).append(tname)
 
@@ -354,6 +401,9 @@ class ToolSelector:
                     sims[best_idx], bm25[best_idx],
                 )
                 selected_tools = {best_srv: [best_tool]}
+                self._last_was_fallback = True
+            else:
+                self._last_was_fallback = False
 
             return selected_tools
 

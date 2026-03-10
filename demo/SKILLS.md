@@ -5,7 +5,8 @@ Non inventare valori per parametri filtro; omettili se non esplicitamente richie
 
 ## lightrag-server
 **Contenuto**: Documentazione pubblica sanitaria di ASST Lariana (ospedali, reparti, servizi); documenti sui centri di visita in Arabia Saudita.
-**Usa per**: domande su ASST Lariana, documenti clinici/sanitari, informazioni centri Arabia Saudita.
+**Usa per**: domande su ASST Lariana, documenti clinici/sanitari, informazioni centri Arabia Saudita, bandi, gare, anestesia, sintesi, riassunto, ricerca semantica su documenti.
+**Tool principale**: query_document — esegue query semantiche su documenti.
 
 ## dbhub-server
 **Contenuto**: Database relazionale con tabelle di episodi clinici sanitari (diagnosi, reparti, ricoveri).

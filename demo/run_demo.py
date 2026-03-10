@@ -254,13 +254,16 @@ class _ProxyHandler(BaseHTTPRequestHandler):
                         "Per chiamare un tool aggiuntivo:\n"
                         "    from client.mcp_client import call_mcp_tool\n"
                         "    result = call_mcp_tool(server_name, tool_name, {'param': value})\n\n"
-                        "Scrivi codice Python che:\n"
-                        "1. Usa `response` (già in scope) per estrarre i dati\n"
-                        "2. Stampa i risultati in modo leggibile, rispondendo al prompt\n"
-                        "   NOTA: rispetta l'ordine dei dati restituito dal server MCP, "
-                        "NON aggiungere ordinamenti (es. sorted()) arbitrari.\n"
-                        "3. Chiama altri tool (dall'elenco) solo se necessario\n"
-                        "Regole: non ridefinire `response`; json è già importato."
+                        "Scrivi codice Python che stampa la risposta al prompt utente.\n"
+                        "Regole IMPORTANTI:\n"
+                        "1. Se `response` contiene un campo di testo già pronto (es. response['response']['response'],\n"
+                        "   response['text'], response['content'], response['result'] o simili),\n"
+                        "   stampalo DIRETTAMENTE con print() — NON ricostruire il testo con print multipli.\n"
+                        "2. Usa sempre: testo = response.get(..., '') oppure response['response'].get('response', '')\n"
+                        "   poi: print(testo) — una sola chiamata print.\n"
+                        "3. Rispetta l'ordine dei dati restituito dal server MCP, NON aggiungere sorted().\n"
+                        "4. Chiama altri tool (dall'elenco) solo se strettamente necessario.\n"
+                        "5. Non ridefinire `response`; json è già importato."
                     ),
                 },
             ]
@@ -673,24 +676,67 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
                 prompt, tool_descriptions, use_gpu=_use_gpu
             )
         )
+    # Memorizza se pass-1 ha usato il fallback (nessun tool sopra soglia)
+    _pass1_is_fallback = getattr(state.agent.tool_selector, "_last_was_fallback", False)
 
-    # 1c. Pass-2: BM25 indipendente sulle skill → skill anchor
-    # Costruisce corpus skill {server: testo} e calcola BM25.
-    # Un server ottiene un anchor solo se bm25 > 0 E non ha già tool selezionati.
+    # 1c. Pass-2: hybrid search (BM25+dense) indipendente sulle sole sezioni skill
+    # Usa lo stesso modello già caricato (cache) → nessun costo aggiuntivo.
+    # Un server ottiene un anchor solo se la sua sezione skill supera il gate
+    # ibrido (dense ≥ threshold OPPURE bm25 > 0), evitando falsi positivi da
+    # stop-word che il puro BM25 produceva.
     if state.skills_sections:
-        _skill_servers = list(state.skills_sections.keys())
-        _skill_texts   = [state.skills_sections[s] for s in _skill_servers]
-        _skill_bm25    = state.agent.tool_selector._bm25_scores(prompt, _skill_texts)
-        _skill_anchored: set[str] = set()
-        for _srv, _score in zip(_skill_servers, _skill_bm25):
-            if _score > 0 and _srv not in selected and _srv in state.discovered_tools:
-                _skill_anchored.add(_srv)
-                selected[_srv] = list(state.discovered_tools[_srv])
-                logger.info(
-                    "[Request] Skill anchor: aggiunto server '%s' (bm25=%.3f) — "
-                    "%d tool aggiunti come candidati",
-                    _srv, _score, len(state.discovered_tools[_srv]),
+        _skill_descs: dict[tuple, str] = {
+            (_srv, "__skill__"): f"{_srv}: {_text}"
+            for _srv, _text in state.skills_sections.items()
+            if _srv in state.discovered_tools
+        }
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _pool2:
+            _loop2 = asyncio.get_event_loop()
+            _skill_result = await _loop2.run_in_executor(
+                _pool2, lambda: state.agent.tool_selector.select_tools(
+                    prompt, _skill_descs, use_gpu=_use_gpu
                 )
+            )
+        _skill_anchored: set[str] = set(_skill_result.keys())
+        for _srv in _skill_anchored:
+            # Entra anche se _srv è già in selected quando pass-1 era un fallback:
+            # il fallback potrebbe aver scelto il tool sbagliato dello stesso server
+            # (es. delete_by_doc_ids invece di query_document per lightrag-server)
+            if (_srv not in selected or _pass1_is_fallback) and _srv in state.discovered_tools:
+                _srv_descs = {k: v for k, v in tool_descriptions.items() if k[0] == _srv}
+                if _srv_descs:
+                    # Usa il testo della sezione SKILLS come query composita (prompt + skills):
+                    # il testo SKILLS contiene termini tecnici del dominio (es. "query documenti
+                    # bandi anestesia sintesi") che matchano BM25 con i nomi/desc dei tool
+                    # molto meglio del solo prompt utente.
+                    # threshold_override=0.0: server già validato → prendi best-score senza gate.
+                    _skills_text = state.skills_sections.get(_srv, "")
+                    _anchor_query = f"{prompt}\n{_skills_text}" if _skills_text else prompt
+                    _srv_sel = state.agent.tool_selector.select_tools(
+                        _anchor_query, _srv_descs, use_gpu=_use_gpu, threshold_override=0.0
+                    )
+                    _sel_tools = list(_srv_sel.get(_srv, []))
+                else:
+                    _sel_tools = []
+                if not _sel_tools:
+                    _sel_tools = list(state.discovered_tools[_srv])[:1]
+                _cap = 3 if len(state.discovered_tools[_srv]) <= 5 else 2
+                selected[_srv] = _sel_tools[:_cap]
+                logger.info(
+                    "[Request] Skill anchor: '%s' (hybrid) → stub selezionati: %s",
+                    _srv, selected[_srv],
+                )
+
+        # Se pass-1 ha usato solo il fallback E sono stati trovati anchor skill
+        # più pertinenti, rimuovi i tool del fallback pass-1 per non distrarre LLM #1
+        if _pass1_is_fallback and _skill_anchored:
+            for _fallback_srv in list(selected.keys()):
+                if _fallback_srv not in _skill_anchored:
+                    logger.info(
+                        "[Request] Pass-1 fallback '%s' rimosso: skill anchors più pertinenti disponibili",
+                        _fallback_srv,
+                    )
+                    selected.pop(_fallback_srv)
     else:
         _skill_anchored = set()
 
@@ -716,35 +762,43 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
         )
         return
 
-    # ── 2. Raccogli stub di tutti i tool candidati ────────────────────────
-    # La similarity search (top-k) filtra il catalogo a pochi candidati.
-    # LLM #1 (GPT-4.1) sceglie autonomamente quale chiamare: è più preciso
-    # di un ranking embedding per prompt in italiano con stub poco descrittivi.
-    candidate_stubs: list[dict] = []   # [{server, tool, stub_src}]
+    # ── 2. Raccogli stub dei tool candidati ──────────────────────────────
+    # Pass-1 (alta priorità) prima, poi skill-anchor (già cappati a 1-3/server).
+    # Cap globale a 10 stub totali per non eccedere il contesto di LLM #1.
+    _MAX_STUBS = 10
+    candidate_stubs: list[dict] = []
     selected_tools_info: list[dict] = []
 
-    for srv, tool_list in selected.items():
-        for tname in tool_list:
-            sf = SERVERS_DIR / srv / f"{tname}.py"
+    _pass1_servers = [s for s in selected if s not in _skill_anchored]
+    _anchor_servers = [s for s in selected if s in _skill_anchored]
+    for _srv_order in _pass1_servers + _anchor_servers:
+        if len(candidate_stubs) >= _MAX_STUBS:
+            break
+        for tname in selected.get(_srv_order, []):
+            if len(candidate_stubs) >= _MAX_STUBS:
+                break
+            sf = SERVERS_DIR / _srv_order / f"{tname}.py"
             if not sf.exists():
                 continue
             src = sf.read_text(encoding="utf-8")
-            candidate_stubs.append({"server": srv, "tool": tname, "stub_src": src})
-            # Estrai prima riga descrittiva per LLM #2
+            candidate_stubs.append({"server": _srv_order, "tool": tname, "stub_src": src})
             desc = ""
             for ln in src.splitlines():
-                s = ln.strip().strip('"')
-                if s and not s.startswith("Stub per") and not s.startswith("Generato"):
-                    desc = s[:200]
+                s_ln = ln.strip().strip('"')
+                if s_ln and not s_ln.startswith("Stub per") and not s_ln.startswith("Generato"):
+                    desc = s_ln[:200]
                     break
-            selected_tools_info.append({"name": tname, "server": srv, "description": desc})
+            selected_tools_info.append({"name": tname, "server": _srv_order, "description": desc})
 
     if not candidate_stubs:
         logger.error("[Request] Nessuno stub trovato per i tool selezionati — prompt ignorato.")
         return
 
     selected_tools_json = json.dumps(selected_tools_info, ensure_ascii=False)
-    logger.info("[Request] Tool info per LLM #2: %s", selected_tools_json[:200])
+    logger.info(
+        "[Request] %d stub candidati, %d tool in available_tools",
+        len(candidate_stubs), len(selected_tools_info),
+    )
 
     # Stubs concatenati per LLM #1
     all_stubs_src = "\n\n# ---\n\n".join(
@@ -784,16 +838,17 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
             "display_code = ask_llm(\n"
             f"    user_prompt={prompt!r},\n"
             "    response_data=json.dumps(response, ensure_ascii=False)[:4000],\n"
-            f"    available_tools={selected_tools_json!r},\n"
+            "    available_tools=_available_tools_json,\n"
             ")\n"
             "\n"
             "exec(display_code, globals())\n"
             "\n"
             "Regole:\n"
             "- Scegli il tool più pertinente al prompt utente\n"
-            "- Passa lang='it' se il parametro esiste nella firma\n"
-            "- Passa limit=5 se il parametro esiste nella firma\n"
-            "- NON inventare valori per parametri filtro (theme, category, type ecc.): lasciali None\n"
+            "- Usa ESCLUSIVAMENTE i parametri presenti nella firma della funzione nello stub: non aggiungerne altri\n"
+            "- Passa lang='it' SOLO se 'lang' è un parametro della firma\n"
+            "- Passa limit=5 SOLO se 'limit' è un parametro della firma\n"
+            "- NON inventare parametri (query, theme, category, type, ecc.): usali solo se presenti nella firma dello stub\n"
             "- Non modificare nessun'altra riga\n"
             "- Non aggiungere altro codice\n"
             "- Non reimportare json, urllib, re"
@@ -809,6 +864,92 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
     if code_raw.endswith("```"):
         code_raw = code_raw[:-3]
     code = code_raw.strip()
+
+    # ── Validazione hallucination: verifica che il tool importato esista ──
+    # LLM #1 può inventare nomi di funzione (es. "search_lightrag_documents"
+    # invece di "query_document"). Rileva il caso e corregge automaticamente.
+    import re as _re
+    import inspect as _inspect
+    _valid_tools = {c["tool"]: c["server"] for c in candidate_stubs}
+    _import_m = _re.search(r"^from\s+(\w+)\s+import\s+(\w+)", code, _re.MULTILINE)
+    if _import_m:
+        _imported_mod = _import_m.group(1)
+        _imported_fn  = _import_m.group(2)
+        if _imported_mod not in _valid_tools:
+            # Hallucination rilevata: trova il server dal sys.path nel codice generato
+            _path_m = _re.search(r"/workspace/servers/([^/'\"]+)", code)
+            _target_srv = _path_m.group(1) if _path_m else None
+            # Cerca il primo stub candidato per quel server (priorità: primo nella lista)
+            _correct_tool = next(
+                (c["tool"] for c in candidate_stubs if _target_srv and c["server"] == _target_srv),
+                candidate_stubs[0]["tool"] if candidate_stubs else None,
+            )
+            if _correct_tool:
+                logger.warning(
+                    "[Request] Hallucination rilevata: LLM ha usato '%s' invece di '%s' — correzione automatica",
+                    _imported_mod, _correct_tool,
+                )
+                # Sostituisce le occorrenze del nome inventato con quello corretto
+                # usando word-boundary per non toccare variabili come "response" che
+                # potrebbero contenere per coincidenza la sottostringa sbagliata
+                def _wb_replace(src: str, old: str, new: str) -> str:
+                    return _re.sub(r"\b" + _re.escape(old) + r"\b", new, src)
+                code = _wb_replace(code, _imported_mod, _correct_tool)
+                if _imported_fn != _imported_mod:
+                    code = _wb_replace(code, _imported_fn, _correct_tool)
+                _imported_mod = _correct_tool
+                _imported_fn  = _correct_tool
+
+        # ── Validazione parametri: rimuovi kwargs inventati da LLM ──────
+        # LLM può chiamare check_lightrag_health(query=...) anche se la firma
+        # non accetta 'query'. Estrae i parametri validi dallo stub e rimuove
+        # quelli non dichiarati dalla chiamata generata.
+        _stub_src = next(
+            (c["stub_src"] for c in candidate_stubs if c["tool"] == _imported_mod), None
+        )
+        if _stub_src:
+            # Estrai i nomi dei parametri dalla firma def X(param1, param2, ...) -> ...:
+            _sig_m = _re.search(
+                r"def\s+" + _re.escape(_imported_mod) + r"\s*\(([^)]*)\)",
+                _stub_src,
+            )
+            if _sig_m:
+                _sig_raw = _sig_m.group(1).strip()
+                # Parsa nome=valore → solo i nomi (senza self, *args, **kwargs)
+                _valid_params: set[str] = set()
+                for _p in _sig_raw.split(","):
+                    _pname = _p.strip().split(":")[0].split("=")[0].strip().lstrip("*")
+                    if _pname and _pname != "self":
+                        _valid_params.add(_pname)
+                # Trova la chiamata nel codice: toolname( ... )
+                _call_m = _re.search(
+                    r"\b" + _re.escape(_imported_mod) + r"\s*\(([^)]*)\)",
+                    code, _re.DOTALL,
+                )
+                if _call_m:
+                    _call_args = _call_m.group(1)
+                    # Estrai i kwarg usati nella chiamata
+                    _used_kwargs = _re.findall(r"\b(\w+)\s*=", _call_args)
+                    _bad_kwargs = [k for k in _used_kwargs if k not in _valid_params]
+                    if _bad_kwargs:
+                        logger.warning(
+                            "[Request] Parametri non validi per '%s': %s — rimozione automatica",
+                            _imported_mod, _bad_kwargs,
+                        )
+                        # Rimuovi ogni kwarg=valore (incluse virgole trailing/leading)
+                        _fixed_args = _call_args
+                        for _bk in _bad_kwargs:
+                            # Rimuove `kwarg=valore` seguito da virgola o fine
+                            _fixed_args = _re.sub(
+                                r",?\s*\b" + _re.escape(_bk) + r"\s*=[^,)]+", "", _fixed_args
+                            )
+                            _fixed_args = _re.sub(
+                                r"\b" + _re.escape(_bk) + r"\s*=[^,)]+,?\s*", "", _fixed_args
+                            )
+                        # Pulisce virgole in eccesso
+                        _fixed_args = _re.sub(r",\s*,", ",", _fixed_args).strip().strip(",").strip()
+                        code = code[:_call_m.start(1)] + _fixed_args + code[_call_m.end(1):]
+
     _sep = "=" * 80
     logger.info("[Request] Codice generato (%d chars):\n%s\n%s\n%s", len(code), _sep, code, _sep)
 
@@ -839,7 +980,8 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
         "if '/workspace' not in sys.path: sys.path.insert(0, '/workspace')\n"
         "import client.mcp_client as _mcp_mod\n"
         f"_mcp_mod._PROXY_PORT = {state.proxy_port}\n"
-        f"_mcp_mod._SANDBOX_HOST = {SANDBOX_HOST!r}\n\n"
+        f"_mcp_mod._SANDBOX_HOST = {SANDBOX_HOST!r}\n"
+        f"_available_tools_json = {selected_tools_json!r}\n\n"
     ) + code
 
     logger.info("[Sandbox ▶ ENTER] Codice orchestratore → execd (%s)", OPENSANDBOX_URL)
@@ -853,6 +995,7 @@ async def handle_prompt(state: AppState, prompt: str) -> str:
         if len(first_line) > 120:
             first_line = first_line[:120] + "..."
         logger.info("[Request] Output (prima riga): %s", first_line)
+        logger.debug("[Request] Output completo:\n%s", stdout.strip())
     else:
         logger.warning("[Request] Nessun output")
 
@@ -884,7 +1027,9 @@ async def main() -> None:
             logger.info(SEP)
             logger.info("TEST %d/%d: %s", idx, len(prompts), prompt)
             logger.info(SEP)
-            await handle_prompt(state, prompt)
+            result = await handle_prompt(state, prompt)
+            if result and result.strip():
+                print("\n" + result.strip() + "\n", flush=True)
             logger.info("Fine TEST %d/%d", idx, len(prompts))
     finally:
         state.proxy_srv.shutdown()
