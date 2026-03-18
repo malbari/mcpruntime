@@ -6,7 +6,18 @@ Tool candidati (stub Python già disponibili in /workspace/servers/):
 
 Scegli il tool PIÙ ADATTO al prompt tra quelli elencati e scrivi codice Python eseguibile.
 
-SCHEMA BASE (un solo tool — step singolo):
+SCHEMA GENERALE:
+Il codice che generi (agent-generated) chiama UN tool iniziale, poi delega ad
+ask_llm() che genera ed esegue codice nella sandbox (sandbox-generated).
+Lo step sandbox-generated può essere invocato RICORSIVAMENTE: il codice che
+produce può a sua volta chiamare altri tool e invocare di nuovo ask_llm() per
+interpretare i risultati, generare visualizzazioni, ecc.
+
+Questo consente catene di N step (discovery → query → chart → …) senza
+che tu debba prevederli tutti: ogni step sandbox-generated vede i dati reali
+del passo precedente e decide autonomamente se servono ulteriori chiamate.
+
+TEMPLATE (adattalo al tool scelto):
 import json, sys as _sys
 if '/workspace/servers/CHOSEN_SERVER' not in _sys.path: _sys.path.insert(0, '/workspace/servers/CHOSEN_SERVER')
 from CHOSEN_TOOL import CHOSEN_TOOL
@@ -20,21 +31,10 @@ display_code = ask_llm(
 )
 exec(display_code, globals())
 
-SCHEMA A DUE STEP (usa questo quando la skill richiede prima la discovery dello schema, poi l'esecuzione):
-import json, sys as _sys
-if '/workspace/servers/CHOSEN_SERVER' not in _sys.path: _sys.path.insert(0, '/workspace/servers/CHOSEN_SERVER')
-from DISCOVERY_TOOL import DISCOVERY_TOOL
-from client.mcp_client import ask_llm
-schema = DISCOVERY_TOOL(...)  # ottieni schema REALE (nomi tabelle e colonne)
-# NON eseguire query qui: il passo successivo (sandbox-generated) vedrà lo schema reale e scriverà la query corretta
-response = {'schema': schema}
-display_code = ask_llm(
-    user_prompt={{user_prompt}},
-    response_data=json.dumps(response, ensure_ascii=False)[:4000],
-    available_tools=_available_tools_json,
-    skills_context=_skills_context,
-)
-exec(display_code, globals())
+Se la skill indica un workflow che richiede prima una discovery (es. ottenere
+lo schema di un database), usa il tool di discovery come CHOSEN_TOOL e passa
+il risultato ad ask_llm(); sarà lo step sandbox-generated a eseguire le
+chiamate successive (query, visualizzazione, ecc.).
 
 Regole:
 - Usa ESCLUSIVAMENTE i parametri presenti nella firma della funzione nello stub: non aggiungerne altri

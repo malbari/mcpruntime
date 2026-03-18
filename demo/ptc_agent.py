@@ -159,10 +159,11 @@ class _ProxyHandler(BaseHTTPRequestHandler):
             ]
 
             llm_resp = litellm.completion(
-                model=f"azure/{os.environ.get('AZURE_OPENAI_DEPLOYMENT', 'gpt-4.1')}",
+                model=os.environ.get("LLM_MODEL", "openai/step-3.5-flash"),
                 messages=messages,
-                api_base=os.environ.get("AZURE_OPENAI_ENDPOINT"),
-                api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
+                api_base=os.environ.get("LLM_API_BASE"),
+                api_key=os.environ.get("LLM_API_KEY"),
+                api_version=os.environ.get("LLM_API_VERSION") or None,
                 max_tokens=2048,
             )
             code_raw = llm_resp.choices[0].message.content or ""
@@ -447,16 +448,50 @@ async def startup(servers_config: list[dict], skills_path: Optional[Path] = None
     logger.info("[Startup 2/5] Proxy MCP su porta %d", proxy_port)
 
     # ── 3. Agent (embeddings + LLM client) ───────────────────────────────
-    agent = create_agent(
-        servers_dir=str(SERVERS_DIR.relative_to(_ROOT)),
-        llm_enabled=True,
-        llm_provider="azure_openai",
-        llm_azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-        llm_azure_deployment=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1"),
-        llm_api_key=os.environ["AZURE_OPENAI_API_KEY"],
-    )
+    _llm_model = os.environ.get("LLM_MODEL", "openai/step-3.5-flash")
+    _llm_api_key = os.environ.get("LLM_API_KEY", "")
+    _llm_api_base = os.environ.get("LLM_API_BASE")
+
+    # Deduce provider/model per create_agent dal formato litellm "provider/model"
+    if "/" in _llm_model:
+        _provider_prefix, _model_name = _llm_model.split("/", 1)
+    else:
+        _provider_prefix, _model_name = "openai", _llm_model
+
+    _create_kwargs: dict[str, Any] = {
+        "servers_dir": str(SERVERS_DIR.relative_to(_ROOT)),
+        "llm_enabled": True,
+        "llm_api_key": _llm_api_key,
+        "llm_model": _model_name,
+    }
+    if _provider_prefix == "azure":
+        _create_kwargs["llm_provider"] = "azure_openai"
+        _create_kwargs["llm_azure_endpoint"] = _llm_api_base or ""
+        _create_kwargs["llm_azure_deployment"] = _model_name
+    else:
+        _create_kwargs["llm_provider"] = _provider_prefix
+
+    agent = create_agent(**_create_kwargs)
+
+    # Per provider non-Azure, sovrascriviamo api_base/model direttamente
+    # perché create_agent non ha un parametro generico api_base.
+    if _provider_prefix != "azure" and _llm_api_base:
+        agent.code_generator._api_base = _llm_api_base
+        agent.code_generator._model_name = _llm_model  # litellm vuole "provider/model"
+    # Applica threshold da env (sovrascrive i default del framework)
+    _sim_th = os.environ.get("TOOL_SIMILARITY_THRESHOLD")
+    if _sim_th is not None:
+        agent.tool_selector.similarity_threshold = float(_sim_th)
+    _top_k = os.environ.get("TOOL_TOP_K")
+    if _top_k is not None:
+        agent.tool_selector.top_k = int(_top_k)
     agent.tool_selector._get_model()
-    logger.info("[Startup 3/5] Agent pronto (embeddings + LLM client)")
+    logger.info(
+        "[Startup 3/5] Agent pronto (model=%s, threshold=%.2f, top_k=%d)",
+        _llm_model,
+        agent.tool_selector.similarity_threshold,
+        agent.tool_selector.top_k,
+    )
 
     # ── 4. Tool discovery (cached) ────────────────────────────────────────
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:

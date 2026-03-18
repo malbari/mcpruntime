@@ -84,9 +84,9 @@ if [[ ! -f "$ENV_FILE" ]]; then
     warn ".env non trovato in $SCRIPT_DIR"
     echo ""
     echo "  Crea il file $ENV_FILE con almeno:"
-    echo "    AZURE_OPENAI_API_KEY=..."
-    echo "    AZURE_OPENAI_ENDPOINT=https://<risorsa>.openai.azure.com"
-    echo "    AZURE_OPENAI_DEPLOYMENT=gpt-4.1"
+    echo "    LLM_MODEL=openai/step-3.5-flash"
+    echo "    LLM_API_KEY=<tua-api-key>"
+    echo "    LLM_API_BASE=https://api.stepfun.ai/v1"
     echo ""
     echo "  URL dei server MCP: configura demo/servers.json"
     echo ""
@@ -95,8 +95,8 @@ fi
 
 # Controlla variabili obbligatorie
 source "$ENV_FILE"
-[[ -z "${AZURE_OPENAI_API_KEY:-}" ]]   && err "AZURE_OPENAI_API_KEY non impostata in .env"
-[[ -z "${AZURE_OPENAI_ENDPOINT:-}" ]]  && err "AZURE_OPENAI_ENDPOINT non impostata in .env"
+[[ -z "${LLM_API_KEY:-}" ]]   && err "LLM_API_KEY non impostata in .env"
+[[ -z "${LLM_MODEL:-}" ]]     && err "LLM_MODEL non impostato in .env (es. openai/step-3.5-flash, azure/gpt-4.1)"
 SANDBOX_HOST_VAL="${SANDBOX_HOST:-host.docker.internal}"
 if [[ "$SANDBOX_HOST_VAL" == "host.docker.internal" ]]; then
     warn "SANDBOX_HOST non impostato — usando 'host.docker.internal' (Docker Desktop Mac/Win)"
