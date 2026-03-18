@@ -1,0 +1,44 @@
+Prompt utente: {{user_prompt}}
+
+Tool candidati (stub Python già disponibili in /workspace/servers/):
+
+{{all_stubs_src}}
+
+Scegli il tool PIÙ ADATTO al prompt tra quelli elencati e scrivi codice Python eseguibile.
+
+SCHEMA BASE (un solo tool — step singolo):
+import json, sys as _sys
+if '/workspace/servers/CHOSEN_SERVER' not in _sys.path: _sys.path.insert(0, '/workspace/servers/CHOSEN_SERVER')
+from CHOSEN_TOOL import CHOSEN_TOOL
+from client.mcp_client import ask_llm
+response = CHOSEN_TOOL(...)
+display_code = ask_llm(
+    user_prompt={{user_prompt}},
+    response_data=json.dumps(response, ensure_ascii=False)[:4000],
+    available_tools=_available_tools_json,
+    skills_context=_skills_context,
+)
+exec(display_code, globals())
+
+SCHEMA A DUE STEP (usa questo quando la skill richiede prima la discovery dello schema, poi l'esecuzione):
+import json, sys as _sys
+if '/workspace/servers/CHOSEN_SERVER' not in _sys.path: _sys.path.insert(0, '/workspace/servers/CHOSEN_SERVER')
+from DISCOVERY_TOOL import DISCOVERY_TOOL
+from client.mcp_client import ask_llm
+schema = DISCOVERY_TOOL(...)  # ottieni schema REALE (nomi tabelle e colonne)
+# NON eseguire query qui: il passo successivo (sandbox-generated) vedrà lo schema reale e scriverà la query corretta
+response = {'schema': schema}
+display_code = ask_llm(
+    user_prompt={{user_prompt}},
+    response_data=json.dumps(response, ensure_ascii=False)[:4000],
+    available_tools=_available_tools_json,
+    skills_context=_skills_context,
+)
+exec(display_code, globals())
+
+Regole:
+- Usa ESCLUSIVAMENTE i parametri presenti nella firma della funzione nello stub: non aggiungerne altri
+- Passa lang='it' SOLO se 'lang' è un parametro della firma
+- Passa limit=5 SOLO se 'limit' è un parametro della firma
+- NON inventare parametri non presenti nella firma dello stub
+- Non reimportare json, urllib, re

@@ -1,0 +1,28 @@
+Prompt utente originale: {{user_prompt}}
+
+Dati ottenuti dal tool (variabile `response` già in scope come dict Python):
+{{response_data}}
+
+Tool disponibili (puoi chiamarne altri se necessario):
+{{available_tools}}
+
+Per chiamare un tool aggiuntivo:
+    from client.mcp_client import call_mcp_tool
+    result = call_mcp_tool(server_name, tool_name, {'param': value})
+
+Scrivi codice Python che risponde al prompt utente usando i dati in `response`.
+
+Regole IMPORTANTI:
+1. Se `response` contiene un campo di testo già pronto (es. response['response']['response'],
+   response['text'], response['content'], response['result']), stampalo DIRETTAMENTE
+   con una sola print() — NON ricostruire il testo con print multipli.
+2. Se `response` contiene 'schema' (pattern discovery a due step):
+   a) Leggi i nomi REALI di tabelle e colonne da response['schema']['data']['results']
+   b) Se response NON contiene 'data' (o data è None): chiama il tool di esecuzione appropriato
+      per ottenere i dati reali (es. execute_sql) — consulta le skill per il workflow corretto
+   c) Se response contiene già 'data': usa i dati disponibili
+   d) Usa i dati per visualizzare i risultati (es. con tool grafici)
+3. Consulta le indicazioni nelle skill per il formato dati richiesto da ogni tool.
+   In generale: converti i valori numerici ricevuti come stringa con int() prima di passarli.
+   IMPORTANTE: call_mcp_tool restituisce il risultato direttamente — usa print(result), NON result['result'].
+4. Non aggiungere sorted() arbitrari; non ridefinire `response`; json è già importato.

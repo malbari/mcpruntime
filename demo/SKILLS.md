@@ -1,6 +1,6 @@
-# Agent Skills — MCP Servers
+# Agent Skills
 
-Scegli il server MCP più specifico per rispondere al prompt utente.
+Scegli la skill (servizio) più specifica per rispondere al prompt utente.
 Non inventare valori per parametri filtro; omettili se non esplicitamente richiesti.
 
 ## lightrag-server
@@ -12,10 +12,14 @@ Non inventare valori per parametri filtro; omettili se non esplicitamente richie
 **Contenuto**: Database relazionale con tabelle di episodi clinici sanitari (diagnosi, reparti, ricoveri, pazienti, patologie).
 **Usa per**: interrogazioni SQL su dati clinici strutturati, statistiche ospedaliere, distribuzione pazienti per patologia principale, aggregazione dati, ricerche per diagnosi o reparto.
 **Workflow OBBLIGATORIO a due step**:
-  1. LLM #1 chiama `search_objects(object_type='table', detail_level='full')` e passa lo schema a LLM #2.
+  1. Lo step agent-generated chiama `search_objects(object_type='table', detail_level='full')` e passa lo schema allo step sandbox-generated.
      ATTENZIONE: `detail_level` accetta SOLO `'names'`, `'summary'`, `'full'` — NON `'columns'`.
-  2. LLM #2 legge i nomi REALI di tabelle e colonne dallo schema, poi chiama `execute_sql` con SQL corretto.
-  LLM #1 NON deve scrivere SQL — non conosce i nomi reali delle colonne prima dell'esecuzione.
+  2. Lo step sandbox-generated (può essere invocato ricorsivamente) legge i nomi REALI di tabelle e colonne dallo schema, poi chiama `execute_sql` con SQL corretto.
+  Lo step agent-generated NON deve scrivere SQL — non conosce i nomi reali delle colonne prima dell'esecuzione.
+  ATTENZIONE parametro: `execute_sql` accetta il parametro `sql` (NON `query`). Esempio:
+  `call_mcp_tool('dbhub-server', 'execute_sql', {'sql': 'SELECT ...'})`
+  ATTENZIONE risposta: `execute_sql` restituisce `{'success': True, 'data': {'rows': [...]}}`.
+  Per accedere alle righe usare SEMPRE `result['data']['rows']` — MAI `result['rows']`.
 
 ## api-to-mcp
 **Contenuto**: API ufficiali turismo Regione Emilia Romagna — news, eventi, città, immagini, itinerari, luoghi di interesse.
